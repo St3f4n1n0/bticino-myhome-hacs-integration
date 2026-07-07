@@ -47,11 +47,13 @@ PANEL_STATIC_URL_PATH = "/api/myhome/panel"
 PANEL_MODULE_URL = f"{PANEL_STATIC_URL_PATH}/myhome-discovery-panel.js"
 WEB_RUNTIME_DATA = f"{DOMAIN}_web_runtime"
 LIGHT_PLATFORM = "light"
+SWITCH_PLATFORM = "switch"
 COVER_PLATFORM = "cover"
 CLIMATE_PLATFORM = "climate"
 SENSOR_PLATFORM = "sensor"
-CONFIG_PLATFORMS = {LIGHT_PLATFORM, COVER_PLATFORM, CLIMATE_PLATFORM, SENSOR_PLATFORM}
+CONFIG_PLATFORMS = {LIGHT_PLATFORM, SWITCH_PLATFORM, COVER_PLATFORM, CLIMATE_PLATFORM, SENSOR_PLATFORM}
 SENSOR_CLASSES = {"power", "temperature", "energy", "illuminance"}
+SWITCH_CLASSES = {"switch", "outlet"}
 _SAFE_KEY_PATTERN = re.compile(r"[^a-z0-9_]+")
 
 
@@ -121,7 +123,7 @@ async def _reload_gateway_entry(hass, gateway: str) -> None:
 
 def _device_from_payload(platform: str, payload: dict[str, Any]) -> tuple[str | None, dict | None, str | None]:
     name = str(payload.get("name") or "").strip()
-    if platform in (LIGHT_PLATFORM, COVER_PLATFORM, SENSOR_PLATFORM):
+    if platform in (LIGHT_PLATFORM, SWITCH_PLATFORM, COVER_PLATFORM, SENSOR_PLATFORM):
         where = str(payload.get("where") or "").strip()
         if not where:
             return None, None, "Field `where` is required."
@@ -133,6 +135,11 @@ def _device_from_payload(platform: str, payload: dict[str, Any]) -> tuple[str | 
                 "name": name,
                 "dimmable": _to_bool(payload.get("dimmable"), False),
             }, None
+        if platform == SWITCH_PLATFORM:
+            switch_class = str(payload.get("class") or "switch").strip().lower()
+            if switch_class not in SWITCH_CLASSES:
+                return None, None, f"Invalid switch class `{switch_class}`."
+            return where, {"where": where, "name": name, "class": switch_class}, None
         if platform == COVER_PLATFORM:
             return where, {"where": where, "name": name}, None
         sensor_class = str(payload.get("class") or "power").strip().lower()
@@ -158,6 +165,7 @@ def _device_from_payload(platform: str, payload: dict[str, Any]) -> tuple[str | 
 def _devices_for_ui(gateway_payload: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     devices: dict[str, list[dict[str, Any]]] = {
         LIGHT_PLATFORM: [],
+        SWITCH_PLATFORM: [],
         COVER_PLATFORM: [],
         CLIMATE_PLATFORM: [],
         SENSOR_PLATFORM: [],
@@ -181,7 +189,7 @@ def _devices_for_ui(gateway_payload: dict[str, Any]) -> dict[str, list[dict[str,
             }
             if platform == LIGHT_PLATFORM:
                 entry["dimmable"] = bool(value.get("dimmable", False))
-            if platform == SENSOR_PLATFORM:
+            if platform in (SWITCH_PLATFORM, SENSOR_PLATFORM):
                 entry["class"] = value.get("class")
             if platform == CLIMATE_PLATFORM:
                 entry["heat"] = bool(value.get("heat", True))
@@ -200,6 +208,13 @@ def _configured_discovery_endpoints(hass, gateway: str) -> dict[str, set[str]]:
     light_where = {
         str(device_data.get(CONF_WHERE))
         for device_data in platforms.get(LIGHT_PLATFORM, {}).values()
+        if device_data.get(CONF_WHERE) is not None
+    }
+    # Switches live in the same WHO 1 address space as lights: a device
+    # configured as switch must not be reported as a "new light".
+    light_where |= {
+        str(device_data.get(CONF_WHERE))
+        for device_data in platforms.get(SWITCH_PLATFORM, {}).values()
         if device_data.get(CONF_WHERE) is not None
     }
     cover_where = {

@@ -20,6 +20,7 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
       manual_name: "",
       manual_address: "",
       manual_sensor_class: "power",
+      manual_switch_class: "switch",
       manual_dimmable: false,
       manual_heat: true,
       manual_cool: true,
@@ -91,6 +92,10 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
     const sensorClass = root.querySelector("#manual_sensor_class");
     if (sensorClass) {
       this._state.manual_sensor_class = sensorClass.value || "power";
+    }
+    const switchClass = root.querySelector("#manual_switch_class");
+    if (switchClass) {
+      this._state.manual_switch_class = switchClass.value || "switch";
     }
     const dimmable = root.querySelector("#manual_dimmable");
     if (dimmable) {
@@ -387,6 +392,9 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
       if (platform === "sensor") {
         body.class = this._state.manual_sensor_class;
       }
+      if (platform === "switch") {
+        body.class = this._state.manual_switch_class;
+      }
 
       const response = await this._hass.callApi("POST", "myhome/configuration/device", body);
       this._configDevices = response.devices || this._configDevices;
@@ -527,7 +535,7 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
     }
 
     const devices = this._configDevices || {};
-    const platforms = ["light", "cover", "climate", "sensor"];
+    const platforms = ["light", "switch", "cover", "climate", "sensor"];
     let total = 0;
 
     const renderDetails = (item, platform) => {
@@ -536,7 +544,7 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
       if (platform === "light") {
         details.push(`dimmable=${item.dimmable ? "true" : "false"}`);
       }
-      if (platform === "sensor" && item.class) {
+      if ((platform === "sensor" || platform === "switch") && item.class) {
         details.push(`class=${item.class}`);
       }
       if (platform === "climate") {
@@ -730,6 +738,18 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
                   <option value="temperature" ${this._state.manual_sensor_class === "temperature" ? "selected" : ""}>temperature</option>
                   <option value="energy" ${this._state.manual_sensor_class === "energy" ? "selected" : ""}>energy</option>
                   <option value="illuminance" ${this._state.manual_sensor_class === "illuminance" ? "selected" : ""}>illuminance</option>
+                </select>
+              </label>
+          `
+        : "";
+
+    const switchClassField =
+      manualPlatform === "switch"
+        ? `
+              <label>Switch class
+                <select id="manual_switch_class" ${configDisabled}>
+                  <option value="switch" ${this._state.manual_switch_class === "switch" ? "selected" : ""}>switch</option>
+                  <option value="outlet" ${this._state.manual_switch_class === "outlet" ? "selected" : ""}>outlet</option>
                 </select>
               </label>
           `
@@ -985,6 +1005,7 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
                 <label>Platform
                   <select id="manual_platform" ${configDisabled}>
                     <option value="light" ${this._state.manual_platform === "light" ? "selected" : ""}>light</option>
+                    <option value="switch" ${this._state.manual_platform === "switch" ? "selected" : ""}>switch</option>
                     <option value="cover" ${this._state.manual_platform === "cover" ? "selected" : ""}>cover</option>
                     <option value="climate" ${this._state.manual_platform === "climate" ? "selected" : ""}>climate</option>
                     <option value="sensor" ${this._state.manual_platform === "sensor" ? "selected" : ""}>sensor</option>
@@ -1000,6 +1021,7 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
                   <input id="manual_address" type="text" value="${this._esc(this._state.manual_address)}" ${configDisabled} />
                 </label>
                 ${sensorClassField}
+                ${switchClassField}
               </div>
               <p class="subtle">Platform: <code>${manualPlatform}</code> | required field: <code>${manualPlatform === "climate" ? "zone" : "where"}</code></p>
               ${manualFlags}
