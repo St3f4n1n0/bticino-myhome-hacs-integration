@@ -14,8 +14,7 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/St3f4n1n0/bticino-myhome-hacs-integration/issues",
   "requirements": [
-    "python-dateutil",
-    "pytz"
+    "python-dateutil==2.9.0.post0"
   ],
   "ssdp": [
     {

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import datetime
 import re
+import zoneinfo
 from typing import Optional
 
 from dateutil.relativedelta import relativedelta
-import pytz
 
 MESSAGE_TYPE_ACTIVE_POWER = "active_power"
 MESSAGE_TYPE_ENERGY_TOTALIZER = "energy_totalizer"
@@ -1979,8 +1979,7 @@ class OWNGatewayCommand(OWNCommand):
 
     @classmethod
     def set_datetime_to_now(cls, time_zone: str):
-        timezone = pytz.timezone(time_zone)
-        now = timezone.localize(datetime.datetime.now())
+        now = datetime.datetime.now(zoneinfo.ZoneInfo(time_zone))
         timezone_offset = (
             f"0{now.strftime('%z')[1:3]}"
             if now.strftime("%z")[0] == "+"
@@ -1994,16 +1993,14 @@ class OWNGatewayCommand(OWNCommand):
 
     @classmethod
     def set_date_to_today(cls, time_zone: str):
-        timezone = pytz.timezone(time_zone)
-        now = timezone.localize(datetime.datetime.now())
+        now = datetime.datetime.now(zoneinfo.ZoneInfo(time_zone))
         message = cls(f"*#13**#1*0{now.strftime('%w*%d*%m*%Y##')}")
         message._human_readable_log = f"Setting gateway date to: {message._date}."
         return message
 
     @classmethod
     def set_time_to_now(cls, time_zone: str):
-        timezone = pytz.timezone(time_zone)
-        now = timezone.localize(datetime.datetime.now())
+        now = datetime.datetime.now(zoneinfo.ZoneInfo(time_zone))
         timezone_offset = (
             f"0{now.strftime('%z')[1:3]}"
             if now.strftime("%z")[0] == "+"
