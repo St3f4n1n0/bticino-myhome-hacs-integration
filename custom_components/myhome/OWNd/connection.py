@@ -288,6 +288,15 @@ class OWNSession:
                     raise ConnectionError(
                         f"{self._type.capitalize()} session connection refused after 5 attempts"
                     )
+                # Close any previous stream before opening a new one, to
+                # avoid leaking sockets and gateway sessions on reconnection.
+                if self._stream_writer is not None:
+                    try:
+                        await self.close()
+                    except Exception:  # pylint: disable=broad-except
+                        pass
+                    self._stream_reader = None
+                    self._stream_writer = None
                 (
                     self._stream_reader,
                     self._stream_writer,
