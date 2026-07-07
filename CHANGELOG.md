@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.1 (2026-07-07)
+
+Critical fix for the first-boot migration.
+
+- the one-time YAML import failed for the standard legacy layout
+  (named gateway section such as `server1:` with an inner `mac:` field)
+  and silently persisted an empty configuration, leaving all entities
+  unavailable. The gateway section is now matched by inner MAC as well,
+  and an empty fallback is no longer persisted, so the import retries
+  at the next boot.
+- recovery for affected installs: with Home Assistant stopped, delete
+  `.storage/myhome_config`, then start again.
+
 ## 1.1.0 (2026-07-07)
 
 Stability and correctness release, addressing the findings of a full code
