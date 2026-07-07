@@ -97,16 +97,19 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     "sensor", DOMAIN, _sensor
                 )
                 if existing_entity_id is not None:
+                    _new_unique_id = (
+                        f"{hass.data[DOMAIN][config_entry.data[CONF_MAC]][CONF_ENTITY].mac}"
+                        f"-{_sensor}-{SensorDeviceClass.POWER}"
+                    )
                     LOGGER.warning(
-                        "Sensor %s: %s will be migrated to %s-%s",
+                        "Sensor %s: %s will be migrated to %s",
                         _sensor,
                         existing_entity_id,
-                        _sensor,
-                        SensorDeviceClass.POWER,
+                        _new_unique_id,
                     )
                     ent_reg.async_update_entity(
                         entity_id=existing_entity_id,
-                        new_unique_id=f"{_sensor}-{SensorDeviceClass.POWER}",
+                        new_unique_id=_new_unique_id,
                     )
 
                 _sensors.append(
