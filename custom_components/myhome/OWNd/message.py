@@ -475,7 +475,11 @@ class OWNLightingEvent(OWNEvent):
         if self._dimension is not None:
             if self._dimension == 1 or self._dimension == 4:  # Brightness value
                 self._brightness = int(self._dimension_value[0]) - 100
-                self._transition = int(self._dimension_value[1])
+                self._transition = (
+                    int(self._dimension_value[1])
+                    if len(self._dimension_value) > 1
+                    else 0
+                )
                 if self._brightness == 0:
                     self._state = 0
                     self._human_readable_log = f"Light {self._where}{self._interface_log_text} is switched off."
@@ -571,7 +575,7 @@ class OWNAutomationEvent(OWNEvent):
             self._state = self._what
 
         if self._dimension is not None:
-            if self._dimension == 10:
+            if self._dimension == 10 and len(self._dimension_value) >= 4:
                 self._state = int(self._dimension_value[0])
                 self._position = int(self._dimension_value[1])
                 self._priority = int(self._dimension_value[2])
@@ -809,8 +813,11 @@ class OWNHeatingEvent(OWNEvent):
 
         elif self._dimension == 19:  # Valves status
             self._type = MESSAGE_TYPE_ACTION
+            _heating_raw = (
+                self._dimension_value[1] if len(self._dimension_value) > 1 else "0"
+            )
             self._is_cooling = self._dimension_value[0] in _valve_active_states
-            self._is_heating = self._dimension_value[1] in _valve_active_states
+            self._is_heating = _heating_raw in _valve_active_states
             self._is_active = self._is_cooling | self._is_heating
             # Handle cooling valve status relative to fan speed/status
             _cooling_value = int(self._dimension_value[0])
@@ -842,7 +849,7 @@ class OWNHeatingEvent(OWNEvent):
                     self._is_active = False
                     self._human_readable_log = f"Zone {self._zone}'s cooling fan is off"
             # Handle heating valve status relative to fan speed/status
-            _heating_value = int(self._dimension_value[1])
+            _heating_value = int(_heating_raw)
             if _heating_value == 0:
                 self._human_readable_log += "; heating valve is off."
             elif _heating_value == 1:
@@ -871,7 +878,9 @@ class OWNHeatingEvent(OWNEvent):
             self._type = MESSAGE_TYPE_ACTION
             self._is_active = self._dimension_value[0] in _actuator_active_states
             self._actuator = (
-                self._where_param[0] if self._where_param[0] is not None else 1
+                self._where_param[0]
+                if self._where_param and self._where_param[0] is not None
+                else 1
             )
             _value = int(self._dimension_value[0])
             if _value == 0:
@@ -1528,7 +1537,11 @@ class OWNDryContactEvent(OWNEvent):
         super().__init__(data)
 
         self._state = 1 if self._what == 31 else 0
-        self._detection = int(self._what_param[0])
+        self._detection = (
+            int(self._what_param[0])
+            if self._what_param and self._what_param[0] is not None
+            else 0
+        )
         self._sensor = self._where[1:]
 
         if self._detection == 1:
