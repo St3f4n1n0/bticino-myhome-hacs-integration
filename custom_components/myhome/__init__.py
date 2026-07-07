@@ -103,6 +103,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     except OSError as ose:
         _gateway_data = hass.data[DOMAIN].pop(entry.data[CONF_MAC], {})
         _gateway_handler = _gateway_data.get(CONF_ENTITY)
+        if _gateway_handler is not None:
+            _gateway_handler.remove_log_filter()
         _host = (
             _gateway_handler.gateway.host
             if _gateway_handler is not None
@@ -113,6 +115,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         ) from ose
 
     if not tests_results or not tests_results["Success"]:
+        hass.data[DOMAIN][entry.data[CONF_MAC]][CONF_ENTITY].remove_log_filter()
         if not tests_results or tests_results["Message"] == "connection_refused":
             del hass.data[DOMAIN][entry.data[CONF_MAC]][CONF_ENTITY]
             raise ConfigEntryNotReady(

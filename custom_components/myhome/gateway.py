@@ -1006,6 +1006,14 @@ class MyHOMEGatewayHandler:
             worker_id,
         )
 
+    def remove_log_filter(self):
+        """Remove the discovery log filter from the shared logger.
+
+        Safe to call multiple times; used on failed-setup paths where
+        close_listener() is never reached.
+        """
+        LOGGER.removeFilter(self._discovery_log_filter)
+
     async def close_listener(self) -> bool:
         LOGGER.info("%s Closing event listener", self.log_id)
         self._terminate_sender = True
