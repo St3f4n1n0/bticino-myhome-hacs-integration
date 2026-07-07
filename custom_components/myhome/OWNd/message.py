@@ -38,6 +38,18 @@ CLIMATE_MODE_AUTO = "auto"
 PIR_SENSITIVITY_MAPPING = ["low", "medium", "high", "very high"]
 
 
+def _parse_own_temperature(value) -> float:
+    """Parse an OWN temperature value.
+
+    The value is a string of digits where the first digit is the sign
+    (0 = positive, 1 = negative) and the remaining digits are the
+    temperature in tenths of a degree: '0235' -> 23.5, '1035' -> -3.5.
+    """
+    value = str(value)
+    sign = -1.0 if value[0] == "1" else 1.0
+    return sign * int(value[1:]) / 10
+
+
 class OWNMessage:
     _ACK = re.compile(r"^\*#\*1##$")  #  *#*1##
     _NACK = re.compile(r"^\*#\*0##$")  #  *#*0##
@@ -723,9 +735,7 @@ class OWNHeatingEvent(OWNEvent):
                 and self._what_param[0] is not None
             ):
                 self._type = MESSAGE_TYPE_MODE_TARGET
-                self._set_temperature = float(
-                    f"{self._what_param[0][1:3]}.{self._what_param[0][-1]}"
-                )
+                self._set_temperature = _parse_own_temperature(self._what_param[0])
                 self._human_readable_log += f" at {self._set_temperature}°C."
             else:
                 self._human_readable_log += "."
@@ -733,14 +743,14 @@ class OWNHeatingEvent(OWNEvent):
         if self._dimension == 0:  # Temperature
             if self._sensor is None:
                 self._type = MESSAGE_TYPE_MAIN_TEMPERATURE
-                self._measured_temperature = float(
-                    f"{self._dimension_value[0][1:3]}.{self._dimension_value[0][-1]}"
+                self._measured_temperature = _parse_own_temperature(
+                    self._dimension_value[0]
                 )
                 self._human_readable_log = f"Zone {self._zone}'s main sensor is reporting a temperature of {self._measured_temperature}°C."  # pylint: disable=line-too-long
             else:
                 self._type = MESSAGE_TYPE_SECONDARY_TEMPERATURE
-                self._secondary_temperature = float(
-                    f"{self._dimension_value[0][1:3]}.{self._dimension_value[0][-1]}"
+                self._secondary_temperature = _parse_own_temperature(
+                    self._dimension_value[0]
                 )
                 self._human_readable_log = f"Zone {self._zone}'s secondary sensor {self._sensor} is reporting a temperature of {self._secondary_temperature}°C."  # pylint: disable=line-too-long
 
@@ -765,8 +775,8 @@ class OWNHeatingEvent(OWNEvent):
 
         elif self._dimension == 12:  # Local set temperature (set+offset)
             self._type = MESSAGE_TYPE_LOCAL_TARGET_TEMPERATURE
-            self._local_set_temperature = float(
-                f"{self._dimension_value[0][1:3]}.{self._dimension_value[0][-1]}"
+            self._local_set_temperature = _parse_own_temperature(
+                self._dimension_value[0]
             )
             self._human_readable_log = f"Zone {self._zone}'s local target temperature is set to {self._local_set_temperature}°C."  # pylint: disable=line-too-long
 
@@ -792,8 +802,8 @@ class OWNHeatingEvent(OWNEvent):
 
         elif self._dimension == 14:  # Set temperature
             self._type = MESSAGE_TYPE_TARGET_TEMPERATURE
-            self._set_temperature = float(
-                f"{self._dimension_value[0][1:3]}.{self._dimension_value[0][-1]}"
+            self._set_temperature = _parse_own_temperature(
+                self._dimension_value[0]
             )
             self._human_readable_log = f"Zone {self._zone}'s target temperature is set to {self._set_temperature}°C."  # pylint: disable=line-too-long
 
