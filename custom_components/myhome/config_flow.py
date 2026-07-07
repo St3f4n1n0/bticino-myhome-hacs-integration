@@ -8,6 +8,7 @@ import async_timeout
 from voluptuous import (
     Schema,
     Required,
+    Optional,
     Coerce,
     All,
     In,
@@ -30,6 +31,11 @@ from homeassistant.const import (
 )
 from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.selector import (
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 from .OWNd.connection import OWNGateway, OWNSession
 from .OWNd.discovery import find_gateways
 
@@ -354,20 +360,14 @@ class MyhomeFlowHandler(ConfigFlow, domain=DOMAIN):
             # Validate user input
             self.gateway_handler.password = str(user_input[CONF_OWN_PASSWORD])
             return await self.async_step_test_connection()
-        else:
-            if self.gateway_handler.password is not None:
-                _suggested_password = self.gateway_handler.password
-            else:
-                _suggested_password = 12345
 
         return self.async_show_form(
             step_id="password",
             data_schema=Schema(
                 {
-                    Required(
-                        CONF_OWN_PASSWORD,
-                        description={"suggested_value": _suggested_password},
-                    ): Coerce(str),
+                    Required(CONF_OWN_PASSWORD): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                    ),
                 }
             ),
             description_placeholders={
@@ -447,10 +447,14 @@ class MyhomeOptionsFlowHandler(OptionsFlow):
             self.options.update({CONF_GENERATE_EVENTS: user_input[CONF_GENERATE_EVENTS]})
             self.options.update({CONF_NAME: entry_name})
 
-            _data_update = not (self.data[CONF_HOST] == user_input[CONF_ADDRESS] and self.data[CONF_OWN_PASSWORD] == user_input[CONF_OWN_PASSWORD])
+            _new_password = str(user_input.get(CONF_OWN_PASSWORD) or "").strip()
+            if not _new_password:
+                # Field left empty: keep the stored password.
+                _new_password = self.data[CONF_OWN_PASSWORD]
+            _data_update = not (self.data[CONF_HOST] == user_input[CONF_ADDRESS] and self.data[CONF_OWN_PASSWORD] == _new_password)
             _title_update = self.config_entry.title != entry_name
             self.data.update({CONF_HOST: user_input[CONF_ADDRESS]})
-            self.data.update({CONF_OWN_PASSWORD: user_input[CONF_OWN_PASSWORD]})
+            self.data.update({CONF_OWN_PASSWORD: _new_password})
 
             try:
                 self.data[CONF_HOST] = str(ipaddress.IPv4Address(self.data[CONF_HOST]))
@@ -481,10 +485,9 @@ class MyhomeOptionsFlowHandler(OptionsFlow):
                         CONF_ADDRESS,
                         description={"suggested_value": self.data[CONF_HOST]},
                     ): str,
-                    Required(
-                        CONF_OWN_PASSWORD,
-                        description={"suggested_value": self.data[CONF_PASSWORD]},
-                    ): str,
+                    Optional(CONF_OWN_PASSWORD): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                    ),
                     Required(
                         CONF_WORKER_COUNT,
                         description={"suggested_value": self.options[CONF_WORKER_COUNT]},
