@@ -125,6 +125,37 @@ def _read_yaml_file(path: str) -> dict[str, Any] | None:
     return parsed if isinstance(parsed, dict) else None
 
 
+def _normalize_mac(value: Any) -> str:
+    """Normalize a MAC address for comparison: lowercase, no separators."""
+    return "".join(ch for ch in str(value).lower() if ch not in ":-.")
+
+
+def _find_gateway_in_yaml(
+    parsed: dict[str, Any], gateway: str
+) -> dict[str, Any] | None:
+    """Find the gateway section in a parsed legacy YAML file.
+
+    Supports both layouts:
+    - top-level key equal to the gateway MAC
+    - arbitrary top-level key (e.g. `server1:`) with a `mac:` field inside,
+      which is the layout used by the original anotherjulien/MyHOME
+      integration and by `examples/myhome.yml`.
+    """
+    direct = parsed.get(gateway)
+    if isinstance(direct, dict):
+        return direct
+
+    target = _normalize_mac(gateway)
+    for value in parsed.values():
+        if (
+            isinstance(value, dict)
+            and CONF_MAC in value
+            and _normalize_mac(value[CONF_MAC]) == target
+        ):
+            return value
+    return None
+
+
 async def async_get_or_migrate_gateway_config(
     hass,
     gateway: str,
@@ -136,12 +167,13 @@ async def async_get_or_migrate_gateway_config(
 
     migrated = await hass.async_add_executor_job(_read_yaml_file, yaml_path)
     if isinstance(migrated, dict):
-        migrated_gateway = migrated.get(gateway)
+        migrated_gateway = _find_gateway_in_yaml(migrated, gateway)
         if isinstance(migrated_gateway, dict):
             payload = _normalize_gateway_payload(gateway, migrated_gateway)
             await async_set_gateway_config(hass, gateway, payload)
             return payload
 
-    empty = {CONF_MAC: gateway}
-    await async_set_gateway_config(hass, gateway, empty)
-    return empty
+    # Nothing to import: do NOT persist an empty config, so the YAML
+    # import is retried at the next boot (e.g. once the file is fixed).
+    # The web panel persists its own changes when devices are added.
+    return {CONF_MAC: gateway}
