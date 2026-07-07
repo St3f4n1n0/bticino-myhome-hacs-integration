@@ -784,12 +784,13 @@ class MyHOMEGatewayHandler:
                     LOGGER.info("%s Listener cancelled.", self.log_id)
                     break  # Exit retry loop
                 else:
+                    retry_count += 1
                     LOGGER.error(
                         "%s Connection lost during message processing: %s",
                         self.log_id,
                         e,
                     )
-                    # Will retry connection in outer loop
+                    # Will retry connection in outer loop with backoff
             except KeyError as ke:
                 # Entity not found in hass.data - likely race condition during startup
                 LOGGER.warning(
