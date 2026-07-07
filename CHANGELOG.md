@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.2 (2026-07-07)
+
+- web panel: switch platform is now fully supported (listing, manual
+  add/remove). Configured switches are counted and, being WHO 1 devices,
+  are no longer proposed by the discovery as "new lights".
+
 ## 1.1.1 (2026-07-07)
 
 Critical fix for the first-boot migration.
