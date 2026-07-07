@@ -426,8 +426,9 @@ class MyHOMEConfigurationDeviceView(HomeAssistantView):
         try:
             config_schema({gateway: gateway_payload})
         except Exception as err:  # pylint: disable=broad-except
+            LOGGER.warning("Web panel submitted an invalid configuration: %s", err)
             return self.json_message(
-                f"Invalid configuration: {err}",
+                "Invalid configuration, see the Home Assistant log for details.",
                 status_code=HTTPStatus.BAD_REQUEST,
             )
 
@@ -572,8 +573,9 @@ class MyHOMEConfigurationImportDiscoveryView(HomeAssistantView):
         try:
             config_schema({gateway: gateway_payload})
         except Exception as err:  # pylint: disable=broad-except
+            LOGGER.warning("Web panel submitted an invalid configuration: %s", err)
             return self.json_message(
-                f"Invalid configuration: {err}",
+                "Invalid configuration, see the Home Assistant log for details.",
                 status_code=HTTPStatus.BAD_REQUEST,
             )
 
