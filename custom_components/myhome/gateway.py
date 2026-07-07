@@ -962,7 +962,17 @@ class MyHOMEGatewayHandler:
                 self.send_buffer.task_done()
 
                 if retry_task and not self._terminate_sender:
-                    await self.send_buffer.put(task)
+                    _task_retries = task.get("retry_count", 0) + 1
+                    if _task_retries <= 3:
+                        task["retry_count"] = _task_retries
+                        await self.send_buffer.put(task)
+                    else:
+                        LOGGER.error(
+                            "%s Dropping message `%s` after %s failed attempts.",
+                            self.log_id,
+                            task["message"],
+                            _task_retries - 1,
+                        )
 
                 if retry_task and command_session is not None:
                     try:
