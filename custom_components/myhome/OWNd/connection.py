@@ -542,20 +542,16 @@ class OWNSession:
 
         return {"Success": not error, "Message": error_message}
 
-    def _get_own_password(self, password, nonce, test=False):
+    def _get_own_password(self, password, nonce):
         start = True
         num1 = 0
         num2 = 0
         password = int(password)
-        if test:
-            print("password: %08x" % (password))
         for character in nonce:
             if character != "0":
                 if start:
                     num2 = password
                 start = False
-            if test:
-                print("c: %s num1: %08x num2: %08x" % (character, num1, num2))
             if character == "1":
                 num1 = (num2 & 0xFFFFFF80) >> 7
                 num2 = num2 << 25
@@ -593,8 +589,6 @@ class OWNSession:
             num2 &= 0xFFFFFFFF
             if character not in "09":
                 num1 |= num2
-            if test:
-                print("     num1: %08x num2: %08x" % (num1, num2))
             num2 = num1
         return num1
 
