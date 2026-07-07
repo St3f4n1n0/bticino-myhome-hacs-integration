@@ -237,7 +237,7 @@ class OWNSession:
                         "%s Test session connection still refused after 3 attempts.",
                         self._gateway.log_id,
                     )
-                    return None
+                    return {"Success": False, "Message": "connection_refused"}
                 (
                     self._stream_reader,
                     self._stream_writer,

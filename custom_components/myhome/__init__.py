@@ -112,7 +112,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             f"Gateway cannot be reached at {_host}, make sure its address is correct."
         ) from ose
 
-    if not tests_results["Success"]:
+    if not tests_results or not tests_results["Success"]:
+        if not tests_results or tests_results["Message"] == "connection_refused":
+            del hass.data[DOMAIN][entry.data[CONF_MAC]][CONF_ENTITY]
+            raise ConfigEntryNotReady(
+                "Gateway refused the connection, it may be busy or out of sessions; retrying later."
+            )
         if (
             tests_results["Message"] == "password_error"
             or tests_results["Message"] == "password_required"
