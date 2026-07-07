@@ -1019,6 +1019,16 @@ class MyHOMEGatewayHandler:
         if self.listening_worker is not None and not self.listening_worker.done():
             self.listening_worker.cancel()
 
+        # Wait for the workers to actually terminate before returning, so
+        # unload/reload never leaves tasks alive on stale hass.data.
+        _workers = [
+            worker
+            for worker in [self.listening_worker, *self.sending_workers]
+            if worker is not None
+        ]
+        if _workers:
+            await asyncio.gather(*_workers, return_exceptions=True)
+
         return True
 
     async def send(self, message: OWNCommand):
