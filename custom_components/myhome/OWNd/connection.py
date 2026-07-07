@@ -675,27 +675,31 @@ class OWNEventSession(OWNSession):
     async def get_next(self) -> Union[OWNMessage, str, None]:
         """Acts as an entry point to read messages on the event bus.
         It will read one frame and return it as an OWNMessage object"""
+        if self._stream_reader is None:
+            raise ConnectionError("Event session is not connected")
+
         try:
             data = await self._stream_reader.readuntil(OWNSession.SEPARATOR)
-            _decoded_data = data.decode()
-            _message = OWNMessage.parse(_decoded_data)
-            return _message if _message else _decoded_data
         except asyncio.IncompleteReadError as err:
             self._logger.warning(
                 "%s Event session connection interrupted.", self._gateway.log_id
             )
             raise ConnectionError("Event session connection interrupted") from err
-        except AttributeError:
+        except ConnectionError:
+            self._logger.warning(
+                "%s Event session connection error.", self._gateway.log_id
+            )
+            raise
+
+        try:
+            _decoded_data = data.decode()
+            _message = OWNMessage.parse(_decoded_data)
+            return _message if _message else _decoded_data
+        except Exception:  # pylint: disable=broad-except
             self._logger.exception(
                 "%s Received data could not be parsed into a message:",
                 self._gateway.log_id,
             )
-            return None
-        except ConnectionError:
-            self._logger.exception("%s Connection error:", self._gateway.log_id)
-            return None
-        except Exception:  # pylint: disable=broad-except
-            self._logger.exception("%s Event session crashed.", self._gateway.log_id)
             return None
 
 
