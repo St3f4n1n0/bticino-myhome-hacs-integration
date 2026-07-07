@@ -9,7 +9,8 @@ no longer read at boot.
 
 Practical consequence: after the first import, changes to devices must be made
 from the **web panel** (or by clearing the storage entry to force a re-import).
-Editing the YAML file alone has no effect.
+Editing the YAML file alone has no effect. The panel manages light, switch
+(since 1.1.2), cover, climate and sensor devices.
 
 ## YAML schema (legacy import)
 

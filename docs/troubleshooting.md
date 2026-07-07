@@ -40,6 +40,22 @@ Common messages:
 
 ## Common issues
 
+- **"Configured devices: 0" after migrating (all entities unavailable)** —
+  affected versions up to 1.1.0: the one-time YAML import did not recognize
+  the legacy layout (named section such as `server1:` with an inner `mac:`
+  field) and persisted an empty configuration. Fixed in **1.1.1**. Recovery:
+  update the integration, then with HA Core stopped (`ha core stop` from the
+  SSH add-on or the host shell via `login`) delete
+  `/config/.storage/myhome_config` (from the host shell:
+  `/mnt/data/supervisor/homeassistant/.storage/myhome_config`), then
+  `ha core start`. The YAML is re-imported at boot.
+- **Discovery proposes your switches as "new lights"** — switches share the
+  WHO 1 address space with lights. Fixed in **1.1.2**: WHO 1 endpoints
+  configured as switch are treated as known. Do not import them as lights:
+  they would clash with the switch unique_ids. After updating, use
+  "Clear list" and hard-refresh the panel page (Ctrl+F5) to drop the cached
+  panel script.
+
 - **Entities stop updating** — check the log for reconnection loops; verify
   the gateway session limit; restart Home Assistant if needed.
 - **Wrong password** — the config entry prompts for re-authentication. The

@@ -34,6 +34,11 @@ production is strongly recommended.
 
 ## Differences to be aware of
 
+- Use version **1.1.1 or later**: earlier versions failed to import the
+  legacy YAML layout (named gateway section) and left the configuration
+  empty. See the [troubleshooting guide](troubleshooting.md) if you migrated
+  with an older version.
+
 - Configuration is imported from YAML **once** into `.storage/myhome_config`,
   then managed from the web panel (the original re-read the YAML at each
   boot). See the [configuration guide](configuration.md).
