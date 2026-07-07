@@ -285,7 +285,9 @@ class OWNSession:
                         self._gateway.log_id,
                         self._type.capitalize(),
                     )
-                    return None
+                    raise ConnectionError(
+                        f"{self._type.capitalize()} session connection refused after 5 attempts"
+                    )
                 (
                     self._stream_reader,
                     self._stream_writer,

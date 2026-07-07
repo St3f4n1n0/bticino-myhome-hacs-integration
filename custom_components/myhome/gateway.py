@@ -492,7 +492,12 @@ class MyHOMEGatewayHandler:
                     await asyncio.sleep(delay)
 
                 _event_session = OWNEventSession(gateway=self.gateway, logger=LOGGER)
-                await _event_session.connect()
+                negotiation = await _event_session.connect()
+                if not negotiation or not negotiation.get("Success", False):
+                    raise ConnectionError(
+                        f"Event session negotiation failed: "
+                        f"{negotiation.get('Message') if negotiation else 'no negotiation result'}"
+                    )
                 self.is_connected = True
                 retry_count = 0  # Reset retry count on successful connection
                 LOGGER.info("%s Successfully connected to gateway.", self.log_id)
@@ -847,7 +852,12 @@ class MyHOMEGatewayHandler:
                         await asyncio.sleep(delay)
 
                     command_session = OWNCommandSession(gateway=self.gateway, logger=LOGGER)
-                    await command_session.connect()
+                    negotiation = await command_session.connect()
+                    if not negotiation or not negotiation.get("Success", False):
+                        raise ConnectionError(
+                            f"Command session negotiation failed: "
+                            f"{negotiation.get('Message') if negotiation else 'no negotiation result'}"
+                        )
                     if retry_count > 0:
                         LOGGER.info(
                             "%s Sender worker %s reconnected to gateway.",
@@ -860,6 +870,7 @@ class MyHOMEGatewayHandler:
                     break
                 except (OSError, ConnectionError, TimeoutError) as conn_err:
                     retry_count += 1
+                    command_session = None
                     LOGGER.error(
                         "%s Sender worker %s failed to connect: %s",
                         self.log_id,
@@ -869,6 +880,7 @@ class MyHOMEGatewayHandler:
                     continue
                 except Exception as err:  # pylint: disable=broad-except
                     retry_count += 1
+                    command_session = None
                     LOGGER.exception(
                         "%s Unexpected sender worker %s connection error: %s",
                         self.log_id,
