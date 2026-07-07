@@ -4,6 +4,9 @@
 .claude/
 docs/
 
+# Local migration data (personal installation, not for distribution)
+migration/
+
 # macOS
 .DS_Store
 
