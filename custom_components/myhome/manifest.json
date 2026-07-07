@@ -2,17 +2,17 @@
   "domain": "myhome",
   "name": "bticino MyHome",
   "codeowners": [
-    "@shiko-labs"
+    "@St3f4n1n0"
   ],
   "config_flow": true,
   "dependencies": [
     "panel_custom",
     "http"
   ],
-  "documentation": "https://github.com/shiko-labs/myhome-homeassistant",
+  "documentation": "https://github.com/St3f4n1n0/bticino-myhome-hacs-integration",
   "integration_type": "hub",
-  "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/shiko-labs/myhome-homeassistant/issues",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/St3f4n1n0/bticino-myhome-hacs-integration/issues",
   "requirements": [
     "python-dateutil",
     "pytz"
