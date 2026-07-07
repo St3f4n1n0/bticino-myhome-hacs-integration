@@ -680,12 +680,11 @@ class OWNEventSession(OWNSession):
             _decoded_data = data.decode()
             _message = OWNMessage.parse(_decoded_data)
             return _message if _message else _decoded_data
-        except asyncio.IncompleteReadError:
+        except asyncio.IncompleteReadError as err:
             self._logger.warning(
-                "%s Connection interrupted, reconnecting...", self._gateway.log_id
+                "%s Event session connection interrupted.", self._gateway.log_id
             )
-            await self.connect()
-            return None
+            raise ConnectionError("Event session connection interrupted") from err
         except AttributeError:
             self._logger.exception(
                 "%s Received data could not be parsed into a message:",
