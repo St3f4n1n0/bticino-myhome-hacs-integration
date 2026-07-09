@@ -11,6 +11,16 @@ gateways allow only a few concurrent sessions: if the gateway refuses
 connections, the integration keeps retrying with backoff and Home Assistant
 shows the config entry as "Retrying setup" instead of failing hard.
 
+TCP keepalive is enabled on every session (since 1.1.3). A gateway or an
+intervening router/NAT can drop an idle connection without sending a
+FIN/RST; without keepalive the blocking read on the event session would
+hang forever and pushed state updates would silently stop until a reload.
+The kernel now probes an idle connection (first probe after 60s, then every
+10s, dropped after 3 unanswered probes), so a dead peer is detected in ~90s
+and reconnection follows automatically. If you still see states freeze,
+capture the log around the freeze time and check whether reconnection
+messages appear afterwards.
+
 Repeated `Connection refused` from a previously working gateway usually means
 the gateway ran out of sessions (other clients connected, or a firmware
 freeze): power-cycle the gateway.
@@ -37,6 +47,12 @@ Common messages:
   logged message content.
 - `Dropping message ... after 3 failed attempts.` — a command could not be
   delivered; check gateway health.
+- `Unhandled heating command for zone N (dimension D) ...` — a WHO 4
+  dimension-writing frame the integration does not act on (e.g. dimension
+  17, a write-echo broadcast by a thermostat/central unit). It is traced,
+  not an error: the zone's real state (temperature, setpoint, mode, valve)
+  arrives through other frames that are handled. Before 1.1.3 these showed
+  up as `Unsupported message type` warnings.
 
 ## Common issues
 
@@ -56,8 +72,11 @@ Common messages:
   "Clear list" and hard-refresh the panel page (Ctrl+F5) to drop the cached
   panel script.
 
-- **Entities stop updating** — check the log for reconnection loops; verify
-  the gateway session limit; restart Home Assistant if needed.
+- **Entities stop updating (and only a reload fixes it)** — typically a
+  silently dropped event session. Addressed in **1.1.3** with TCP keepalive,
+  which detects a dead connection in ~90s and reconnects automatically. If it
+  persists, check the log for reconnection loops and verify the gateway
+  session limit.
 - **Wrong password** — the config entry prompts for re-authentication. The
   OPEN password can be numeric (OPEN algorithm) or alphanumeric (HMAC).
 - **Switch on a bus interface not refreshing** — fixed in this fork (status

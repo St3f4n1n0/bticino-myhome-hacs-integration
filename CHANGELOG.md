@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.1.3 (2026-07-09)
+
+Connection resilience and cleaner heating-message handling.
+
+### Connection stability
+
+- TCP keepalive is now enabled on both the event and command sessions.
+  MyHome gateways (and any intervening router/NAT) can silently drop an idle
+  connection without sending a FIN/RST; the blocking read on the event
+  session would then hang indefinitely, freezing all pushed state updates
+  until a manual reload. The kernel now probes idle connections (first probe
+  after 60s, then every 10s, dropped after 3 unanswered probes), so a dead
+  peer is detected in ~90s and the listening loop reconnects on its own with
+  the existing backoff. The same protection reduces the churn on the command
+  session that surfaced as repeated "Reconnecting and retrying" warnings.
+
+### Heating
+
+- WHO 4 dimension-writing frames the integration does not act on (such as
+  dimension 17, a write-echo periodically broadcast by a thermostat or
+  central unit) are no longer reported as "Unsupported message type"
+  warnings. They are now traced as an "Unhandled heating command" (INFO on
+  first sight, then DEBUG, rate-limited). The affected zone's actual state
+  keeps arriving through the frames that are already handled, so no
+  functionality changes.
+
 ## 1.1.2 (2026-07-07)
 
 - web panel: switch platform is now fully supported (listing, manual

@@ -3,6 +3,7 @@
 import asyncio
 import hmac
 import hashlib
+import socket
 import string
 import random
 import logging
@@ -303,6 +304,7 @@ class OWNSession:
                 ) = await asyncio.open_connection(
                     self._gateway.address, self._gateway.port
                 )
+                self._enable_tcp_keepalive()
                 return await self._negotiate()
             except (ConnectionRefusedError, asyncio.IncompleteReadError):
                 self._logger.warning(
@@ -322,6 +324,41 @@ class OWNSession:
                 )
                 await asyncio.sleep(60)
                 retry_count += 1
+
+    def _enable_tcp_keepalive(self) -> None:
+        """Enable TCP keepalive on the underlying socket.
+
+        MyHome gateways (and any NAT/router in between) silently drop idle
+        connections without sending a FIN/RST. Without keepalive a blocking
+        `readuntil` on the event session can hang forever, so pushed state
+        updates stop and only a reload recovers. With keepalive the kernel
+        probes the peer and surfaces a real error, which the listening loop
+        turns into a reconnection.
+
+        Probing starts after 60s of idle, repeats every 10s and gives up
+        after 3 unanswered probes, so a dead peer is detected in ~90s.
+        The TCP_KEEP* options are Linux-specific and simply skipped where
+        unavailable (SO_KEEPALIVE alone still applies the OS defaults).
+        """
+        if self._stream_writer is None:
+            return
+        sock = self._stream_writer.get_extra_info("socket")
+        if sock is None:
+            return
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+            if hasattr(socket, "TCP_KEEPIDLE"):
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 60)
+            if hasattr(socket, "TCP_KEEPINTVL"):
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
+            if hasattr(socket, "TCP_KEEPCNT"):
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
+        except OSError as err:  # pragma: no cover - platform dependent
+            self._logger.debug(
+                "%s Could not enable TCP keepalive: %s",
+                self._gateway.log_id,
+                err,
+            )
 
     async def close(self) -> None:
         """Closes the connection to the OpenWebNet gateway"""
@@ -714,7 +751,7 @@ class OWNCommandSession(OWNSession):
 
     async def send(self, message, is_status_request: bool = False, attempt: int = 1):
         """Send the attached message on an existing 'command' connection,
-        actively reconnecting it if it had been reset."""
+        actively reconnecting it if it had been reset by the gateway."""
 
         try:
             if (

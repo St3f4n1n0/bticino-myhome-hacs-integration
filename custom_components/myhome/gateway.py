@@ -758,6 +758,36 @@ class MyHOMEGatewayHandler:
                                     message.human_readable_log,
                                     self._message_count[msg_type],
                                 )
+                        elif isinstance(message, OWNHeatingCommand):
+                            # Known-but-unhandled heating command frames, e.g.
+                            # WHO 4 dimension 17: a write-echo the thermostat/
+                            # central unit broadcasts on the bus. The zone's
+                            # actual state (temperature, setpoint, mode, valve)
+                            # arrives via other frames that ARE handled, so we
+                            # do not act on this one. We still trace it (INFO on
+                            # first sight, then DEBUG, rate-limited) instead of
+                            # flagging it as an unsupported message.
+                            msg_key = f"heating_cmd_dim{message.dimension}_where{message.where}"
+                            self._message_count[msg_key] = self._message_count.get(msg_key, 0) + 1
+
+                            if self._message_count[msg_key] == 1:
+                                LOGGER.info(
+                                    "%s Unhandled heating command for zone %s (dimension %s): `%s` (further occurrences will be logged every %s messages)",
+                                    self.log_id,
+                                    message.where,
+                                    message.dimension,
+                                    message,
+                                    self._log_interval,
+                                )
+                            elif self._message_count[msg_key] % self._log_interval == 0:
+                                LOGGER.debug(
+                                    "%s Unhandled heating command (dimension %s) for zone %s: `%s` (received %s times)",
+                                    self.log_id,
+                                    message.dimension,
+                                    message.where,
+                                    message,
+                                    self._message_count[msg_key],
+                                )
                         else:
                             # Rate limiting for unsupported messages
                             msg_key = self._unsupported_message_key(message)
