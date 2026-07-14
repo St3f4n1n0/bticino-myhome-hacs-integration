@@ -969,7 +969,7 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
       <div class="wrap">
         <div class="brand">
           <img class="brand-logo" src="${logoUrl}" alt="bticino" />
-          <h2 class="brand-title">bticino MyHome Unofficial Integration</h2>
+          <h2 class="brand-title">bticino MyHome</h2>
         </div>
 
         <section class="panel">
