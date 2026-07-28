@@ -11,6 +11,7 @@ import re
 from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import HomeAssistantView, StaticPathConfig
 from homeassistant.const import CONF_MAC
+from homeassistant.loader import async_get_integration
 
 from .const import (
     CONF_BUS_INTERFACE,
@@ -1006,13 +1007,24 @@ async def async_setup_web(hass) -> None:
     if runtime_data["panel_registered"]:
         return
 
+    # The panel script is served from a static path, so browsers cache it
+    # aggressively and keep running the previous version after an update.
+    # Appending the integration version busts that cache on every release.
+    module_url = PANEL_MODULE_URL
+    try:
+        integration = await async_get_integration(hass, DOMAIN)
+        if integration.version:
+            module_url = f"{PANEL_MODULE_URL}?v={integration.version}"
+    except Exception:  # pylint: disable=broad-except
+        LOGGER.debug("Could not resolve integration version for the panel URL")
+
     await panel_custom.async_register_panel(
         hass=hass,
         frontend_url_path=PANEL_URL_PATH,
         webcomponent_name=PANEL_WEBCOMPONENT_NAME,
         sidebar_title=PANEL_TITLE,
         sidebar_icon=PANEL_ICON,
-        module_url=PANEL_MODULE_URL,
+        module_url=module_url,
         require_admin=True,
     )
     runtime_data["panel_registered"] = True

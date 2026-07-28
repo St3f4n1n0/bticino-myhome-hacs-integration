@@ -16,6 +16,10 @@
   rejected with an explicit message instead of being silently persisted
   without producing an entity.
 
+- the panel script URL now carries the integration version as a query
+  parameter, so browsers stop serving a cached copy of the panel after an
+  update (previously a manual hard-refresh was needed to see new features).
+
 ### Naming
 
 - the sidebar entry and the panel header now read simply **bticino MyHome**,
