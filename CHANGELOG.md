@@ -12,6 +12,11 @@ sensor from the panel.
   every entity — so on a busy system the input being typed into was destroyed
   and recreated a few characters at a time. The panel does not display entity
   states, so it now renders once and then only on explicit user actions.
+- a motion sensor configured as a WHO 1 `binary_sensor` is no longer proposed
+  by the discovery as a "new light". Motion sensors share the WHO 1 address
+  space with lights, and a PIR driving a dedicated address announces itself
+  with WHAT 34: importing it as a light would create an entity that can never
+  turn on. Same treatment already applied to switches in 1.1.2.
 
 ### Motion sensors
 

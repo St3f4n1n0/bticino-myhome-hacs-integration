@@ -302,6 +302,16 @@ def _configured_discovery_endpoints(hass, gateway: str) -> dict[str, set[str]]:
         for device_data in platforms.get(SWITCH_PLATFORM, {}).values()
         if device_data.get(CONF_WHERE) is not None
     }
+    # WHO 1 binary sensors (motion) share that address space too. A PIR
+    # driving a dedicated address announces itself with WHAT 34, which is
+    # motion and not a switch-on: proposing it as a "new light" would lead to
+    # importing an entity that can never turn on.
+    light_where |= {
+        str(device_data.get(CONF_WHERE))
+        for device_data in platforms.get(BINARY_SENSOR_PLATFORM, {}).values()
+        if device_data.get(CONF_WHERE) is not None
+        and str(device_data.get(CONF_WHO, "")).strip() == "1"
+    }
     cover_where = {
         str(device_data.get(CONF_WHERE))
         for device_data in platforms.get(COVER_PLATFORM, {}).values()
