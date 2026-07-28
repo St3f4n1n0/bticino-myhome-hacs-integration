@@ -16,6 +16,12 @@
   rejected with an explicit message instead of being silently persisted
   without producing an entity.
 
+### Naming
+
+- the sidebar entry and the panel header now read simply **bticino MyHome**,
+  dropping the "Unofficial Integration" suffix. After updating, hard-refresh
+  the panel page (Ctrl+F5) to drop the cached panel script.
+
 ## 1.1.3 (2026-07-09)
 
 Connection resilience and cleaner heating-message handling.
