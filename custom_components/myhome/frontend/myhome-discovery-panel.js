@@ -23,6 +23,7 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
       manual_switch_class: "switch",
       manual_binary_class: "motion",
       manual_binary_who: "25",
+      manual_binary_timeout: "",
       manual_inverted: false,
       manual_dimmable: false,
       manual_heat: true,
@@ -34,15 +35,19 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
   }
 
   set hass(hass) {
-    if (this.childElementCount > 0) {
-      this._readGatewayState();
-      this._readManualState();
-    }
+    const firstAssignment = !this._hass;
     this._hass = hass;
     if (!this._loadingGateways && this._gateways.length === 0) {
       this._loadGateways();
     }
-    this._render();
+    // Home Assistant assigns `hass` on every state change of every entity.
+    // Re-rendering here rebuilt the whole DOM continuously, which stole the
+    // focus from the form fields while typing (a few characters at a time).
+    // The panel does not display entity states, so it only needs to render
+    // once; every other render is triggered explicitly by a user action.
+    if (firstAssignment || this.childElementCount === 0) {
+      this._render();
+    }
   }
 
   _esc(value) {
@@ -107,6 +112,10 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
     const binaryWho = root.querySelector("#manual_binary_who");
     if (binaryWho) {
       this._state.manual_binary_who = binaryWho.value || "25";
+    }
+    const binaryTimeout = root.querySelector("#manual_binary_timeout");
+    if (binaryTimeout) {
+      this._state.manual_binary_timeout = binaryTimeout.value || "";
     }
     const inverted = root.querySelector("#manual_inverted");
     if (inverted) {
@@ -414,6 +423,9 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
         body.who = this._state.manual_binary_who;
         body.class = this._state.manual_binary_class;
         body.inverted = this._state.manual_inverted;
+        if (this._state.manual_binary_timeout) {
+          body.timeout = this._state.manual_binary_timeout;
+        }
       }
 
       const response = await this._hass.callApi("POST", "myhome/configuration/device", body);
@@ -569,6 +581,9 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
       }
       if (platform === "binary_sensor" && item.inverted) {
         details.push("inverted=true");
+      }
+      if (platform === "binary_sensor" && item.timeout) {
+        details.push(`timeout=${item.timeout}s`);
       }
       if (platform === "climate") {
         details.push(`heat=${item.heat ? "true" : "false"}`);
@@ -824,6 +839,9 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
                     )
                     .join("")}
                 </select>
+              </label>
+              <label>Motion timeout (s, optional)
+                <input id="manual_binary_timeout" type="number" min="5" max="3600" placeholder="300" value="${this._esc(this._state.manual_binary_timeout)}" ${configDisabled} />
               </label>
           `
         : "";

@@ -52,12 +52,28 @@ It takes a `where`, a device `class` and an explicit `who`:
       where: "1015"
       name: "Presenza Corridoio"
       class: motion
+      timeout: 75
 ```
 
 - `who: "25"` (default) — dry contact
 - `who: "9"` — auxiliary channel
 - `who: "1"` — motion sensor; only the `motion` class is supported, since it
   is the only WHO 1 combination that produces an entity
+- `timeout` (optional, 5-3600 seconds) — how long a motion entity stays `on`
+  after the last detection
+
+### Motion timeout
+
+A motion entity is switched back to `off` by a timer, not by a bus message.
+The integration asks the device for its own timeout and, when the device
+answers, uses that value plus 15s. A sensor driving a **dedicated (unused)
+address** never answers that query — nothing lives at that address — so the
+entity would fall back to the built-in default (300s) no matter what timer is
+configured on the sensor itself.
+
+Set `timeout` explicitly in that case: a configured value always wins over
+the one reported by the bus. For a sensor set to 1 minute, `timeout: 75`
+(60s plus a small margin) mirrors the device behaviour.
 
 A MyHome PIR/presence sensor configured in "local" mode toward an unused
 address becomes a usable motion entity this way: it broadcasts WHAT `34`

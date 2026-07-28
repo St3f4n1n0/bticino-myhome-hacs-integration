@@ -206,13 +206,26 @@ def _device_from_payload(platform: str, payload: dict[str, Any]) -> tuple[str | 
             )
         if not name:
             name = f"Binary sensor {where}"
-        return where, {
+        device = {
             "who": who,
             "where": where,
             "name": name,
             "class": device_class,
             "inverted": _to_bool(payload.get("inverted"), False),
-        }, None
+        }
+        # Optional motion timeout (seconds). Relevant for WHO 1 sensors that
+        # drive a dedicated address: no device answers the motion-timeout
+        # query there, so the value has to be declared by the user.
+        raw_timeout = payload.get("timeout")
+        if raw_timeout is not None and str(raw_timeout).strip():
+            try:
+                timeout = int(str(raw_timeout).strip())
+            except ValueError:
+                return None, None, "Field `timeout` must be a whole number of seconds."
+            if not 5 <= timeout <= 3600:
+                return None, None, "Field `timeout` must be between 5 and 3600 seconds."
+            device["timeout"] = timeout
+        return where, device, None
 
     zone = str(payload.get("zone") or "").strip()
     if not zone:
@@ -262,6 +275,7 @@ def _devices_for_ui(gateway_payload: dict[str, Any]) -> dict[str, list[dict[str,
             if platform == BINARY_SENSOR_PLATFORM:
                 entry["class"] = value.get("class")
                 entry["inverted"] = bool(value.get("inverted", False))
+                entry["timeout"] = value.get("timeout")
             if platform == CLIMATE_PLATFORM:
                 entry["heat"] = bool(value.get("heat", True))
                 entry["cool"] = bool(value.get("cool", False))

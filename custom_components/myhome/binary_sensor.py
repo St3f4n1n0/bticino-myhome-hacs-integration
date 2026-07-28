@@ -33,6 +33,7 @@ from .const import (
     CONF_DEVICE_MODEL,
     CONF_DEVICE_CLASS,
     CONF_INVERTED,
+    CONF_MOTION_TIMEOUT,
     DOMAIN,
     LOGGER,
 )
@@ -96,6 +97,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                 manufacturer=_configured_binary_sensors[_binary_sensor][CONF_MANUFACTURER],
                 model=_configured_binary_sensors[_binary_sensor][CONF_DEVICE_MODEL],
                 gateway=hass.data[DOMAIN][config_entry.data[CONF_MAC]][CONF_ENTITY],
+                timeout=_configured_binary_sensors[_binary_sensor].get(CONF_MOTION_TIMEOUT),
             )
             _binary_sensors.append(_binary_sensor)
 
@@ -252,6 +254,7 @@ class MyHOMEMotionSensor(MyHOMEEntity, BinarySensorEntity, RestoreEntity):
         manufacturer: str,
         model: str,
         gateway: MyHOMEGatewayHandler,
+        timeout: int | None = None,
     ):
         super().__init__(
             hass=hass,
@@ -268,7 +271,13 @@ class MyHOMEMotionSensor(MyHOMEEntity, BinarySensorEntity, RestoreEntity):
         self._inverted = inverted
         self._attr_force_update = False
         self._last_updated = None
-        self._timeout = timedelta(seconds=315)
+        # A configured timeout wins over anything reported by the bus: a
+        # sensor driving a dedicated (unused) address has no device answering
+        # the motion-timeout query, so the value can only come from the user.
+        self._configured_timeout = (
+            timedelta(seconds=timeout) if timeout is not None else None
+        )
+        self._timeout = self._configured_timeout or timedelta(seconds=300)
 
         self._attr_device_class = device_class
         self._attr_name = entity_name if entity_name else self._attr_device_class.replace("_", " ").capitalize()
@@ -326,8 +335,9 @@ class MyHOMEMotionSensor(MyHOMEEntity, BinarySensorEntity, RestoreEntity):
         if message.message_type == MESSAGE_TYPE_MOTION and message.motion:
             self._attr_is_on = message.motion != self._inverted
         elif message.message_type == MESSAGE_TYPE_MOTION_TIMEOUT:
-            self._timeout = message.motion_timeout + timedelta(seconds=15)
-            self._attr_extra_state_attributes["Timeout"] = self._timeout.total_seconds()
+            if self._configured_timeout is None:
+                self._timeout = message.motion_timeout + timedelta(seconds=15)
+                self._attr_extra_state_attributes["Timeout"] = self._timeout.total_seconds()
         elif message.message_type == MESSAGE_TYPE_PIR_SENSITIVITY:
             self._attr_extra_state_attributes["Sensitivity"] = PIR_SENSITIVITY[message.pir_sensitivity]
         self._last_updated = datetime.now(timezone.utc)

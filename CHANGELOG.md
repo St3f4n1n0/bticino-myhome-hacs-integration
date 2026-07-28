@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.1.4.1 (2026-07-28)
+
+Follow-up to 1.1.4, fixing two problems found while configuring a motion
+sensor from the panel.
+
+### Web panel
+
+- text fields no longer lose focus while typing. The panel re-rendered its
+  whole DOM on every `hass` assignment — that is, on every state change of
+  every entity — so on a busy system the input being typed into was destroyed
+  and recreated a few characters at a time. The panel does not display entity
+  states, so it now renders once and then only on explicit user actions.
+
+### Motion sensors
+
+- motion binary sensors accept an optional `timeout` (5-3600 seconds),
+  configurable from the panel, controlling how long the entity stays `on`
+  after the last detection. A configured value always wins over the one
+  reported by the bus: a sensor driving a dedicated (unused) address has no
+  device answering the motion-timeout query, so previously the entity was
+  stuck on the built-in default regardless of the timer set on the sensor.
+- the built-in default is now **300s** (was 315s) and is still used when no
+  timeout is configured and the device does not report one.
+
 ## 1.1.4 (2026-07-28)
 
 ### Web panel

@@ -11,6 +11,7 @@ from voluptuous import (
     All,
     In,
     Invalid,
+    Range,
 )
 from homeassistant.helpers.device_registry import format_mac as ha_format_mac
 from homeassistant.components.light import DOMAIN as LIGHT
@@ -48,6 +49,7 @@ from .const import (
     CONF_DIMMABLE,
     CONF_ADVANCED_SHUTTER,
     CONF_INVERTED,
+    CONF_MOTION_TIMEOUT,
     CONF_HEATING_SUPPORT,
     CONF_COOLING_SUPPORT,
     CONF_STANDALONE,
@@ -350,6 +352,11 @@ binary_sensor_schema = MyHomeDeviceSchema(
             Required(CONF_NAME): str,
             Optional(CONF_ENTITY_NAME): str,
             Optional(CONF_INVERTED, default=False): Boolean(),
+            # Seconds a motion entity stays `on` after the last detection.
+            # Only meaningful for WHO 1 motion sensors; when omitted the
+            # entity keeps its built-in default and, where the device answers
+            # the motion-timeout query, the value reported by the bus.
+            Optional(CONF_MOTION_TIMEOUT): All(Coerce(int), Range(min=5, max=3600)),
             Optional(CONF_DEVICE_CLASS): In(
                 [
                     BinarySensorDeviceClass.BATTERY,
