@@ -21,6 +21,9 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
       manual_address: "",
       manual_sensor_class: "power",
       manual_switch_class: "switch",
+      manual_binary_class: "motion",
+      manual_binary_who: "25",
+      manual_inverted: false,
       manual_dimmable: false,
       manual_heat: true,
       manual_cool: true,
@@ -96,6 +99,18 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
     const switchClass = root.querySelector("#manual_switch_class");
     if (switchClass) {
       this._state.manual_switch_class = switchClass.value || "switch";
+    }
+    const binaryClass = root.querySelector("#manual_binary_class");
+    if (binaryClass) {
+      this._state.manual_binary_class = binaryClass.value || "motion";
+    }
+    const binaryWho = root.querySelector("#manual_binary_who");
+    if (binaryWho) {
+      this._state.manual_binary_who = binaryWho.value || "25";
+    }
+    const inverted = root.querySelector("#manual_inverted");
+    if (inverted) {
+      this._state.manual_inverted = !!inverted.checked;
     }
     const dimmable = root.querySelector("#manual_dimmable");
     if (dimmable) {
@@ -395,6 +410,11 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
       if (platform === "switch") {
         body.class = this._state.manual_switch_class;
       }
+      if (platform === "binary_sensor") {
+        body.who = this._state.manual_binary_who;
+        body.class = this._state.manual_binary_class;
+        body.inverted = this._state.manual_inverted;
+      }
 
       const response = await this._hass.callApi("POST", "myhome/configuration/device", body);
       this._configDevices = response.devices || this._configDevices;
@@ -535,7 +555,7 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
     }
 
     const devices = this._configDevices || {};
-    const platforms = ["light", "switch", "cover", "climate", "sensor"];
+    const platforms = ["light", "switch", "cover", "climate", "sensor", "binary_sensor"];
     let total = 0;
 
     const renderDetails = (item, platform) => {
@@ -544,8 +564,11 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
       if (platform === "light") {
         details.push(`dimmable=${item.dimmable ? "true" : "false"}`);
       }
-      if ((platform === "sensor" || platform === "switch") && item.class) {
+      if ((platform === "sensor" || platform === "switch" || platform === "binary_sensor") && item.class) {
         details.push(`class=${item.class}`);
+      }
+      if (platform === "binary_sensor" && item.inverted) {
+        details.push("inverted=true");
       }
       if (platform === "climate") {
         details.push(`heat=${item.heat ? "true" : "false"}`);
@@ -755,8 +778,64 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
           `
         : "";
 
+    const binarySensorClasses = [
+      "motion",
+      "door",
+      "window",
+      "opening",
+      "garage_door",
+      "smoke",
+      "gas",
+      "moisture",
+      "occupancy",
+      "presence",
+      "problem",
+      "safety",
+      "sound",
+      "vibration",
+      "light",
+      "heat",
+      "cold",
+      "power",
+      "plug",
+      "lock",
+      "battery",
+      "battery_charging",
+      "connectivity",
+      "moving",
+    ];
+
+    const binarySensorFields =
+      manualPlatform === "binary_sensor"
+        ? `
+              <label>WHO
+                <select id="manual_binary_who" ${configDisabled}>
+                  <option value="25" ${this._state.manual_binary_who === "25" ? "selected" : ""}>25 - dry contact</option>
+                  <option value="1" ${this._state.manual_binary_who === "1" ? "selected" : ""}>1 - motion sensor</option>
+                  <option value="9" ${this._state.manual_binary_who === "9" ? "selected" : ""}>9 - auxiliary</option>
+                </select>
+              </label>
+              <label>Binary sensor class
+                <select id="manual_binary_class" ${configDisabled}>
+                  ${binarySensorClasses
+                    .map(
+                      (item) =>
+                        `<option value="${item}" ${this._state.manual_binary_class === item ? "selected" : ""}>${item}</option>`
+                    )
+                    .join("")}
+                </select>
+              </label>
+          `
+        : "";
+
     const manualFlags =
-      manualPlatform === "light"
+      manualPlatform === "binary_sensor"
+        ? `
+            <div class="checks">
+              <label><input id="manual_inverted" type="checkbox" ${this._state.manual_inverted ? "checked" : ""} ${configDisabled} /> Inverted</label>
+            </div>
+          `
+        : manualPlatform === "light"
         ? `
             <div class="checks">
               <label><input id="manual_dimmable" type="checkbox" ${this._state.manual_dimmable ? "checked" : ""} ${configDisabled} /> Dimmable</label>
@@ -1009,6 +1088,7 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
                     <option value="cover" ${this._state.manual_platform === "cover" ? "selected" : ""}>cover</option>
                     <option value="climate" ${this._state.manual_platform === "climate" ? "selected" : ""}>climate</option>
                     <option value="sensor" ${this._state.manual_platform === "sensor" ? "selected" : ""}>sensor</option>
+                    <option value="binary_sensor" ${this._state.manual_platform === "binary_sensor" ? "selected" : ""}>binary_sensor</option>
                   </select>
                 </label>
                 <label>Key (optional)
@@ -1022,6 +1102,7 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
                 </label>
                 ${sensorClassField}
                 ${switchClassField}
+                ${binarySensorFields}
               </div>
               <p class="subtle">Platform: <code>${manualPlatform}</code> | required field: <code>${manualPlatform === "climate" ? "zone" : "where"}</code></p>
               ${manualFlags}

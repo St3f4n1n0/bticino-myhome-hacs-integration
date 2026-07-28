@@ -51,9 +51,46 @@ SWITCH_PLATFORM = "switch"
 COVER_PLATFORM = "cover"
 CLIMATE_PLATFORM = "climate"
 SENSOR_PLATFORM = "sensor"
-CONFIG_PLATFORMS = {LIGHT_PLATFORM, SWITCH_PLATFORM, COVER_PLATFORM, CLIMATE_PLATFORM, SENSOR_PLATFORM}
+BINARY_SENSOR_PLATFORM = "binary_sensor"
+CONFIG_PLATFORMS = {
+    LIGHT_PLATFORM,
+    SWITCH_PLATFORM,
+    COVER_PLATFORM,
+    CLIMATE_PLATFORM,
+    SENSOR_PLATFORM,
+    BINARY_SENSOR_PLATFORM,
+}
 SENSOR_CLASSES = {"power", "temperature", "energy", "illuminance"}
 SWITCH_CLASSES = {"switch", "outlet"}
+# Mirrors the WHO values accepted by binary_sensor_schema in validate.py.
+BINARY_SENSOR_WHOS = {"1", "9", "25"}
+# Mirrors the device classes accepted by binary_sensor_schema in validate.py.
+BINARY_SENSOR_CLASSES = {
+    "battery",
+    "battery_charging",
+    "cold",
+    "connectivity",
+    "door",
+    "garage_door",
+    "gas",
+    "heat",
+    "light",
+    "lock",
+    "moisture",
+    "motion",
+    "moving",
+    "occupancy",
+    "opening",
+    "plug",
+    "power",
+    "presence",
+    "problem",
+    "safety",
+    "smoke",
+    "sound",
+    "vibration",
+    "window",
+}
 _SAFE_KEY_PATTERN = re.compile(r"[^a-z0-9_]+")
 
 
@@ -147,6 +184,35 @@ def _device_from_payload(platform: str, payload: dict[str, Any]) -> tuple[str | 
             return None, None, f"Invalid sensor class `{sensor_class}`."
         return where, {"where": where, "name": name, "class": sensor_class}, None
 
+    if platform == BINARY_SENSOR_PLATFORM:
+        where = str(payload.get("where") or "").strip()
+        if not where:
+            return None, None, "Field `where` is required."
+        who = str(payload.get("who") or "25").strip()
+        if who not in BINARY_SENSOR_WHOS:
+            return None, None, f"Invalid WHO `{who}` for a binary sensor."
+        device_class = str(payload.get("class") or "motion").strip().lower()
+        if device_class not in BINARY_SENSOR_CLASSES:
+            return None, None, f"Invalid binary sensor class `{device_class}`."
+        # binary_sensor.py only instantiates a WHO 1 endpoint when its device
+        # class is `motion`; any other class would be persisted but would
+        # never produce an entity, so it is rejected here instead.
+        if who == "1" and device_class != "motion":
+            return (
+                None,
+                None,
+                "WHO 1 binary sensors only support the `motion` device class.",
+            )
+        if not name:
+            name = f"Binary sensor {where}"
+        return where, {
+            "who": who,
+            "where": where,
+            "name": name,
+            "class": device_class,
+            "inverted": _to_bool(payload.get("inverted"), False),
+        }, None
+
     zone = str(payload.get("zone") or "").strip()
     if not zone:
         return None, None, "Field `zone` is required."
@@ -169,6 +235,7 @@ def _devices_for_ui(gateway_payload: dict[str, Any]) -> dict[str, list[dict[str,
         COVER_PLATFORM: [],
         CLIMATE_PLATFORM: [],
         SENSOR_PLATFORM: [],
+        BINARY_SENSOR_PLATFORM: [],
     }
     for platform in CONFIG_PLATFORMS:
         platform_data = gateway_payload.get(platform, {})
@@ -191,6 +258,9 @@ def _devices_for_ui(gateway_payload: dict[str, Any]) -> dict[str, list[dict[str,
                 entry["dimmable"] = bool(value.get("dimmable", False))
             if platform in (SWITCH_PLATFORM, SENSOR_PLATFORM):
                 entry["class"] = value.get("class")
+            if platform == BINARY_SENSOR_PLATFORM:
+                entry["class"] = value.get("class")
+                entry["inverted"] = bool(value.get("inverted", False))
             if platform == CLIMATE_PLATFORM:
                 entry["heat"] = bool(value.get("heat", True))
                 entry["cool"] = bool(value.get("cool", False))

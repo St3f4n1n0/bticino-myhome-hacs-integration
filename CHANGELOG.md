@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.4 (2026-07-28)
+
+### Web panel
+
+- the `binary_sensor` platform can now be configured from the web panel:
+  it is selectable in the manual add form, with a WHO selector (25 dry
+  contact, 1 motion sensor, 9 auxiliary), the full list of supported device
+  classes and an `inverted` flag. Configured binary sensors are listed and
+  removable like any other device. Previously the platform existed in the
+  integration but was only reachable through the one-time YAML import, so on
+  installs already migrated to storage it could not be configured at all.
+- WHO 1 endpoints are accepted only with the `motion` device class, which is
+  the only combination `binary_sensor.py` instantiates; any other class is
+  rejected with an explicit message instead of being silently persisted
+  without producing an entity.
+
 ## 1.1.3 (2026-07-09)
 
 Connection resilience and cleaner heating-message handling.

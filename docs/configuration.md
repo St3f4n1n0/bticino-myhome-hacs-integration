@@ -40,6 +40,34 @@ server1:
 - `climate` uses `zone`.
 - Default WHO values: light `1`, cover `2`, climate `4`.
 
+### Binary sensors
+
+`binary_sensor` covers dry contacts, auxiliary channels and motion sensors.
+It takes a `where`, a device `class` and an explicit `who`:
+
+```yaml
+  binary_sensor:
+    presenza_corridoio:
+      who: "1"
+      where: "1015"
+      name: "Presenza Corridoio"
+      class: motion
+```
+
+- `who: "25"` (default) — dry contact
+- `who: "9"` — auxiliary channel
+- `who: "1"` — motion sensor; only the `motion` class is supported, since it
+  is the only WHO 1 combination that produces an entity
+
+A MyHome PIR/presence sensor configured in "local" mode toward an unused
+address becomes a usable motion entity this way: it broadcasts WHAT `34`
+(motion detected) on that address, which is decoded as motion. Note that the
+same address must **not** also be configured as a `light`: WHAT `34` is not a
+switch-on, so a light entity on it would never turn on.
+
+Since **1.1.4** all of this is configurable from the web panel (platform
+`binary_sensor`), with WHO and device-class selectors.
+
 ## Unique IDs and entity IDs
 
 Entities are registered with `unique_id = {gateway_mac}-{who}-{where}`
