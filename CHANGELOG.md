@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.1.5 (2026-08-15)
+
+### Climate
+
+- **fan coil speed can now be set.** Zones with fan support expose the
+  standard Home Assistant fan control (`auto`, `low`, `medium`, `high`),
+  sending `*#4*<zone>*#11*<speed>##`. Until now the fan speed was only parsed
+  from the bus, never surfaced (`ClimateEntityFeature.FAN_MODE` was never set)
+  and never settable — `async_set_fan_mode` was commented out and OWNd had no
+  command for it.
+- the write scale mirrors the one the zone already reports in its
+  dimension-11 events: 0 auto, 1 low, 2 medium, 3 high.
+- there is deliberately no "off" fan mode: switching the zone off is what
+  `HVACMode.OFF` is for, and an off fan mode would duplicate it. A fan the bus
+  reports as stopped leaves the last known speed shown rather than an invalid
+  mode.
+- unchanged for zones without fan coils: fan support is opt-in per device
+  (`fan: true`, default `false`), so nothing new appears on radiator or
+  underfloor zones.
+
+### Web panel
+
+- the climate `fan` flag now defaults to **off** in the manual add form, in
+  the discovery candidates and in the API, matching the YAML schema. It used
+  to default to on, which was harmless while the flag did nothing but would
+  now add a fan control to every zone added from the panel, fan coil or not.
+- **climate flags are now editable in place.** Configured zones show
+  `heat`/`cool`/`fan`/`standalone` as checkboxes with a Save button, so
+  enabling the fan control on an existing zone no longer means deleting and
+  recreating it. Saving reloads the config entry, so the new capabilities
+  appear without restarting Home Assistant.
+
 ## 1.1.4.1 (2026-07-28)
 
 Follow-up to 1.1.4, fixing two problems found while configuring a motion

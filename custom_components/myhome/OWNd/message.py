@@ -1848,6 +1848,32 @@ class OWNHeatingCommand(OWNCommand):
         return cls.set_mode(where=where, mode=CLIMATE_MODE_OFF, standalone=standalone)
 
     @classmethod
+    def set_fan_speed(cls, where, speed: int):
+        """Set the fan coil speed of a zone.
+
+        Dimension 11 is written as `*#4*<zone>*#11*<speed>##`, using the same
+        scale the zone reports in its dimension-11 events: 0 auto, 1 low,
+        2 medium, 3 high, 4 off.
+        """
+        central_local = re.compile(r"^#0#\d+$")
+        if central_local.match(str(where)):
+            zone = where
+            zone_name = f"zone {int(where.split('#')[-1])}"
+        else:
+            zone = int(where.split("#")[-1]) if where.startswith("#") else int(where)
+            zone_name = f"zone {zone}" if zone > 0 else "general"
+
+        speed = int(speed)
+        speed = 0 if speed < 0 else 4 if speed > 4 else speed
+        speed_name = {0: "auto", 1: "low", 2: "medium", 3: "high", 4: "off"}[speed]
+
+        message = cls(f"*#4*{zone}*#11*{speed}##")
+        message._human_readable_log = (
+            f"Setting {zone_name}'s fan speed to '{speed_name}'."
+        )
+        return message
+
+    @classmethod
     def set_temperature(cls, where, temperature: float, mode: str, standalone=False):
         central_local = re.compile(r"^#0#\d+$")
         if central_local.match(str(where)):

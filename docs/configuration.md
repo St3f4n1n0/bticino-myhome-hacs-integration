@@ -40,6 +40,40 @@ server1:
 - `climate` uses `zone`.
 - Default WHO values: light `1`, cover `2`, climate `4`.
 
+### Climate zones
+
+Each zone accepts `heat` (default `true`), `cool` (default `false`),
+`standalone` and `fan` (default `false`):
+
+```yaml
+  climate:
+    salotto:
+      zone: "22"
+      name: "Termostato Salotto"
+      heat: true
+      cool: true
+      standalone: true
+      fan: true
+```
+
+Set `fan: true` only on **fan coil** zones. It adds the Home Assistant fan
+control (`auto`, `low`, `medium`, `high`), which reads the speed the zone
+reports and writes it back with `*#4*<zone>*#11*<speed>##` (0 auto, 1 low,
+2 medium, 3 high). On radiator or underfloor zones there is no fan to drive,
+so leave it off and no control is shown.
+
+There is no "off" fan mode on purpose: turning the zone off is what the HVAC
+`off` mode does, so an off fan speed would only duplicate it.
+
+The same flags are available from the web panel, both in the manual add form
+and on the discovery candidates, all defaulting to off except `heat`.
+
+Zones that are **already configured** can be edited in place: in the panel's
+device list each climate row shows the four flags as checkboxes with a **Save**
+button. Saving reloads the integration, so enabling `fan` makes the fan control
+appear without restarting Home Assistant. The `unique_id` is derived from the
+zone (`{mac}-4-{zone}`), so the entity keeps its entity_id, name and history.
+
 ### Binary sensors
 
 `binary_sensor` covers dry contacts, auxiliary channels and motion sensors.

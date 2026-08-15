@@ -5,7 +5,6 @@ from homeassistant.components.climate import (
     DOMAIN as PLATFORM,
 )
 from homeassistant.components.climate.const import (
-    FAN_OFF,
     FAN_AUTO,
     FAN_LOW,
     FAN_MEDIUM,
@@ -139,8 +138,9 @@ class MyHOMEClimate(MyHOMEEntity, ClimateEntity):
 
     @staticmethod
     def _fan_mode_from_speed(is_on, speed):
-        if is_on is False:
-            return FAN_OFF
+        # A stopped fan is not reported as a fan mode: switching the zone off
+        # is what HVACMode.OFF is for, and an "off" fan mode would duplicate
+        # it. The previously known speed is kept instead.
         if is_on is not True:
             return None
         if speed == 1:
@@ -150,6 +150,14 @@ class MyHOMEClimate(MyHOMEEntity, ClimateEntity):
         if speed == 3:
             return FAN_HIGH
         return FAN_AUTO
+
+    # OWN dimension 11 uses the same scale in both directions.
+    _FAN_SPEED_BY_MODE = {
+        FAN_AUTO: 0,
+        FAN_LOW: 1,
+        FAN_MEDIUM: 2,
+        FAN_HIGH: 3,
+    }
 
     def __init__(
         self,
@@ -204,8 +212,8 @@ class MyHOMEClimate(MyHOMEEntity, ClimateEntity):
         self._attr_fan_modes = []
         self._fan = fan
         if fan:
-            # OWNd exposes fan telemetry for WHO4 but not fan set command.
-            self._attr_fan_modes = [FAN_AUTO, FAN_LOW, FAN_MEDIUM, FAN_HIGH, FAN_OFF]
+            self._attr_fan_modes = [FAN_AUTO, FAN_LOW, FAN_MEDIUM, FAN_HIGH]
+            self._attr_supported_features |= ClimateEntityFeature.FAN_MODE
 
         self._attr_current_temperature = None
         self._attr_current_humidity = None
@@ -341,9 +349,21 @@ class MyHOMEClimate(MyHOMEEntity, ClimateEntity):
                     )
                 )
 
-    # async def async_set_fan_mode(self, fan_mode):
-    #     """Set new target fan mode."""
-    #     pass
+    async def async_set_fan_mode(self, fan_mode):
+        """Set new target fan mode."""
+        if not self._fan:
+            return
+        speed = self._FAN_SPEED_BY_MODE.get(fan_mode)
+        if speed is None:
+            LOGGER.warning(
+                "%s Unsupported fan mode `%s` requested.",
+                self._gateway_handler.log_id,
+                fan_mode,
+            )
+            return
+        await self._gateway_handler.send(
+            OWNHeatingCommand.set_fan_speed(where=self._where, speed=speed)
+        )
 
     async def async_set_temperature(self, **kwargs):
         """Set new target temperature."""

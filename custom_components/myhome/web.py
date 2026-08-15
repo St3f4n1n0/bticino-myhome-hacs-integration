@@ -237,7 +237,9 @@ def _device_from_payload(platform: str, payload: dict[str, Any]) -> tuple[str | 
         "name": name,
         "heat": _to_bool(payload.get("heat"), True),
         "cool": _to_bool(payload.get("cool"), True),
-        "fan": _to_bool(payload.get("fan"), True),
+        # Fan support is opt-in: it now adds a real fan control, which only
+        # makes sense on fan coil zones. Matches the YAML schema default.
+        "fan": _to_bool(payload.get("fan"), False),
         "standalone": _to_bool(payload.get("standalone"), True),
     }, None
 

@@ -28,7 +28,7 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
       manual_dimmable: false,
       manual_heat: true,
       manual_cool: true,
-      manual_fan: true,
+      manual_fan: false,
       manual_standalone: true,
       manual_section_open: false,
     };
@@ -242,7 +242,8 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
         name: `Climate ${address}`,
         heat: true,
         cool: true,
-        fan: true,
+        // Opt-in: only fan coil zones have a fan to drive.
+        fan: false,
         standalone: true,
       };
     }
@@ -443,6 +444,57 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
     }
   }
 
+  async _saveDeviceFlags(platform, key) {
+    if (!this._hass || !this._state.gateway || !platform || !key) {
+      return;
+    }
+
+    const item = (this._configDevices?.[platform] || []).find(
+      (entry) => entry.key === key
+    );
+    if (!item) {
+      return;
+    }
+
+    // Read the checkboxes of this row straight from the DOM: the save
+    // endpoint upserts on the key, so we resend the device with its current
+    // identity plus the edited flags.
+    const rowId = `${platform}:${key}`;
+    const body = {
+      gateway: this._state.gateway,
+      platform,
+      key,
+      name: item.name,
+    };
+    if (platform === "climate") {
+      body.zone = item.zone;
+    } else {
+      body.where = item.where;
+    }
+    this.querySelectorAll("input[data-edit-id][data-edit-field]").forEach((element) => {
+      if (element.dataset.editId === rowId) {
+        body[element.dataset.editField] = !!element.checked;
+      }
+    });
+
+    this._savingConfig = true;
+    this._error = "";
+    this._notice = "";
+    this._render();
+
+    try {
+      const response = await this._hass.callApi("POST", "myhome/configuration/device", body);
+      this._configDevices = response.devices || this._configDevices;
+      this._notice = `Device updated (${platform}:${key}).`;
+      await this._loadConfiguration();
+    } catch (err) {
+      this._error = err?.body?.message || err?.message || "Device update failed.";
+    } finally {
+      this._savingConfig = false;
+      this._render();
+    }
+  }
+
   async _deleteDevice(platform, key) {
     if (!this._hass || !this._state.gateway || !platform || !key) {
       return;
@@ -530,6 +582,12 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
     this.querySelectorAll("[data-delete-platform][data-delete-key]").forEach((button) => {
       button.addEventListener("click", () => {
         this._deleteDevice(button.dataset.deletePlatform, button.dataset.deleteKey);
+      });
+    });
+
+    this.querySelectorAll("[data-save-platform][data-save-key]").forEach((button) => {
+      button.addEventListener("click", () => {
+        this._saveDeviceFlags(button.dataset.savePlatform, button.dataset.saveKey);
       });
     });
 
@@ -622,13 +680,34 @@ class MyHOMEDiscoveryPanel extends HTMLElement {
         const rows = items
           .map((item) => {
             const address = item.where || item.zone || "-";
+            // Climate flags are editable in place: `fan` in particular adds or
+            // removes the Home Assistant fan control, and having to delete and
+            // recreate the zone just to toggle it would be needlessly harsh.
+            const editableFlags = platform === "climate"
+              ? ["heat", "cool", "fan", "standalone"]
+              : [];
+            const rowId = `${platform}:${item.key}`;
+            const detailsCell = editableFlags.length
+              ? `<div class="detail-list">
+                  ${editableFlags
+                    .map(
+                      (flag) => `
+                      <label class="inline-check"><input type="checkbox" data-edit-id="${this._esc(rowId)}" data-edit-field="${flag}" ${item[flag] ? "checked" : ""} ${this._savingConfig ? "disabled" : ""}/> ${flag}</label>
+                    `
+                    )
+                    .join("")}
+                </div>`
+              : renderDetails(item, platform);
+            const saveButton = editableFlags.length
+              ? `<button type="button" data-save-platform="${platform}" data-save-key="${this._esc(item.key)}" ${this._savingConfig ? "disabled" : ""}>Save</button> `
+              : "";
             return `
               <tr>
                 <td><code>${this._esc(item.key)}</code></td>
                 <td>${this._esc(item.name || "-")}</td>
                 <td><code>${this._esc(address)}</code></td>
-                <td>${renderDetails(item, platform)}</td>
-                <td><button type="button" class="danger" data-delete-platform="${platform}" data-delete-key="${this._esc(item.key)}">Remove</button></td>
+                <td>${detailsCell}</td>
+                <td>${saveButton}<button type="button" class="danger" data-delete-platform="${platform}" data-delete-key="${this._esc(item.key)}">Remove</button></td>
               </tr>
             `;
           })
