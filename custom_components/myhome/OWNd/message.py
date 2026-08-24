@@ -1819,6 +1819,17 @@ class OWNHeatingCommand(OWNCommand):
         return message
 
     @classmethod
+    def get_fan_speed(cls, where):
+        """Ask a zone for its current fan coil speed.
+
+        The general status request does not include dimension 11 on every
+        zone, so the fan speed has to be asked for explicitly.
+        """
+        message = cls(f"*#4*{where}*11##")
+        message._human_readable_log = f"Requesting fan speed for {message._where}{message._interface_log_text}."
+        return message
+
+    @classmethod
     def set_mode(cls, where, mode: str, standalone=False):
         central_local = re.compile(r"^#0#\d+$")
         if central_local.match(str(where)):

@@ -16,6 +16,18 @@ current one.
 - the new branch updates only the fan attributes. Reusing the existing
   "action" handling would have been shorter but would have read the speed as a
   valve state and reported a heating/cooling action that is not happening.
+- **the last known speed is restored across restarts.** Some zones publish
+  their fan speed only when it changes: neither the general status request nor
+  an explicit dimension 11 or 19 query returns it on demand (verified on a
+  live fan coil zone — dimension 11 goes unanswered and dimension 19 replies
+  with valve states only). The fan mode therefore showed as unknown after
+  every restart until someone happened to change the speed. It is now restored
+  from the previous state, and anything the bus pushes afterwards takes
+  precedence.
+- zones with fan support also send `*#4*<zone>*11##` when the entity is added.
+  It goes unanswered on the zone tested here, but it is the natural query and
+  costs a single frame; where a zone does answer it, the real speed shows up
+  immediately instead of the restored one.
 
 ## 1.1.5 (2026-08-15)
 

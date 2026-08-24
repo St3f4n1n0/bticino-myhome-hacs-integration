@@ -53,6 +53,8 @@ from .const import (
     DOMAIN,
     LOGGER,
 )
+from homeassistant.helpers.restore_state import RestoreEntity
+
 from .myhome_device import MyHOMEEntity
 from .gateway import MyHOMEGatewayHandler
 
@@ -110,7 +112,7 @@ async def async_unload_entry(hass, config_entry):
         ]
 
 
-class MyHOMEClimate(MyHOMEEntity, ClimateEntity):
+class MyHOMEClimate(MyHOMEEntity, ClimateEntity, RestoreEntity):
     @staticmethod
     def _decode_thermo_state(value):
         try:
@@ -240,6 +242,24 @@ class MyHOMEClimate(MyHOMEEntity, ClimateEntity):
         self._valve_position = None
         self._valve_channel = None
 
+    async def async_added_to_hass(self):
+        """Restore the last known fan mode when the entity comes back."""
+        await super().async_added_to_hass()
+
+        # Some zones publish their fan speed only when it changes: neither the
+        # general status request nor dimension 11 or 19 returns it on demand.
+        # Without this the fan mode would show as unknown after every restart,
+        # until someone happened to change the speed. Any value pushed by the
+        # bus afterwards takes precedence.
+        if not self._fan or self._attr_fan_mode is not None:
+            return
+        last_state = await self.async_get_last_state()
+        if last_state is None:
+            return
+        last_fan_mode = last_state.attributes.get("fan_mode")
+        if last_fan_mode in (self._attr_fan_modes or []):
+            self._attr_fan_mode = last_fan_mode
+
     async def async_update(self):
         """Update the entity.
 
@@ -248,6 +268,13 @@ class MyHOMEClimate(MyHOMEEntity, ClimateEntity):
         await self._gateway_handler.send_status_request(
             OWNHeatingCommand.status(self._where)
         )
+        # The general status request does not carry dimension 11 on every
+        # zone, so without this the fan mode would stay empty until someone
+        # changed the speed and the zone echoed it back.
+        if self._fan:
+            await self._gateway_handler.send_status_request(
+                OWNHeatingCommand.get_fan_speed(self._where)
+            )
 
     @property
     def target_temperature(self) -> float:
