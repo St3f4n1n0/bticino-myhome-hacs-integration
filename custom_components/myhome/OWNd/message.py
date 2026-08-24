@@ -25,6 +25,7 @@ MESSAGE_TYPE_LOCAL_TARGET_TEMPERATURE = "local_targer_temperature"
 MESSAGE_TYPE_MODE = "hvac_mode"
 MESSAGE_TYPE_MODE_TARGET = "hvac_mode_target"
 MESSAGE_TYPE_ACTION = "hvac_action"
+MESSAGE_TYPE_FAN_SPEED = "fan_speed"
 MESSAGE_TYPE_MOTION = "motion_detected"
 MESSAGE_TYPE_PIR_SENSITIVITY = "pir_sensitivity"
 MESSAGE_TYPE_ILLUMINANCE = "illuminance_value"
@@ -759,6 +760,7 @@ class OWNHeatingEvent(OWNEvent):
                 self._human_readable_log = f"Zone {self._zone}'s secondary sensor {self._sensor} is reporting a temperature of {self._secondary_temperature}°C."  # pylint: disable=line-too-long
 
         elif self._dimension == 11:  # Fan speed
+            self._type = MESSAGE_TYPE_FAN_SPEED
             _fan_mode = int(self._dimension_value[0])
             if _fan_mode < 4:
                 self._fan_on = True

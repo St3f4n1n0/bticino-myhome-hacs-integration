@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.1.6 (2026-08-15)
+
+Follow-up to 1.1.5: the fan control could set a speed but never showed the
+current one.
+
+### Climate
+
+- **the current fan speed is now reported.** Dimension-11 events
+  (`*#4*<zone>*11*<speed>##`) were parsed but carried no message type, and the
+  climate entity dispatches on exactly that, so they were dropped: the speed
+  was only ever picked up indirectly from the valve status (dimension 19),
+  which not every zone sends. They now carry a dedicated `fan_speed` type and
+  are handled on their own.
+- the new branch updates only the fan attributes. Reusing the existing
+  "action" handling would have been shorter but would have read the speed as a
+  valve state and reported a heating/cooling action that is not happening.
+
 ## 1.1.5 (2026-08-15)
 
 ### Climate

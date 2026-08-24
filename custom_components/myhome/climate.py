@@ -35,6 +35,7 @@ from .OWNd.message import (
     MESSAGE_TYPE_MODE,
     MESSAGE_TYPE_MODE_TARGET,
     MESSAGE_TYPE_ACTION,
+    MESSAGE_TYPE_FAN_SPEED,
 )
 
 from .const import (
@@ -570,6 +571,22 @@ class MyHOMEClimate(MyHOMEEntity, ClimateEntity):
             self._local_target_temperature = (
                 self._target_temperature + self._local_offset
             )
+        elif message.message_type == MESSAGE_TYPE_FAN_SPEED:
+            # Dimension 11 reports the fan coil speed on its own, without any
+            # valve information: only the fan attributes are updated here, so
+            # that a speed change does not fake a heating/cooling action.
+            LOGGER.debug(
+                "%s %s",
+                self._gateway_handler.log_id,
+                message.human_readable_log,
+            )
+            self._fan_on = getattr(message, "_fan_on", self._fan_on)
+            self._fan_speed = getattr(message, "_fan_speed", self._fan_speed)
+
+            if self._fan:
+                fan_mode = self._fan_mode_from_speed(self._fan_on, self._fan_speed)
+                if fan_mode is not None:
+                    self._attr_fan_mode = fan_mode
         elif message.message_type == MESSAGE_TYPE_ACTION:
             LOGGER.debug(
                 "%s %s",
