@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.1.7 (2026-09-06)
+
+Fixes the integration failing to start on **Home Assistant 2026.9**. Stable on
+2026.8 and earlier; no configuration change is needed.
+
+### Configuration validation
+
+- **the platform schemas no longer rely on voluptuous calling them.** The
+  per-platform schemas were `Schema` subclasses whose `__call__` did the work
+  the rest of the integration depends on: re-keying every device to
+  `{who}-{where}` — which is what `unique_id`s are built from — and adding the
+  derived keys `entities`, `icon`, `icon_on`, `entity_name` and `model`.
+  Nested inside the gateway schema, they are compiled into it by voluptuous,
+  and as of 2026.9 that override no longer runs. The data still validated, so
+  the failure was silent and downstream: device keys stayed raw, every
+  platform raised `KeyError` (`entities`, `icon`, `entity_name`) and the entry
+  failed to set up. Entities that did get created came up with new unique_ids
+  and duplicate `_2` entity_ids.
+- the post-processing now lives in plain functions applied by
+  `MyHomeConfigSchema`, which the integration calls directly, so it runs
+  exactly once regardless of how voluptuous compiles nested schemas. It is not
+  idempotent — a central climate zone would gain a second `#0#` prefix — which
+  is why the nested schemas no longer do it themselves.
+- verified against a real stored configuration: light, switch, cover, climate
+  and sensor devices are re-keyed to the same identifiers as before, so
+  entities keep their entity_id and history.
+
+### Housekeeping
+
+- replaced `device_registry.devices` with `dr.async_entries_for_config_entry`.
+  Home Assistant deprecated using the registry as a mapping and it stops
+  working in 2027.9.0.
+
 ## 1.1.6 (2026-08-15)
 
 Follow-up to 1.1.5: the fan control could set a speed but never showed the

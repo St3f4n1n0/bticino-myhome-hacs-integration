@@ -177,6 +177,23 @@ class BusInterface(object):
 class MyHomeConfigSchema(Schema):
     def __call__(self, data):
         data = super().__call__(data)
+
+        # Apply the per-platform post-processing here rather than in the
+        # nested schemas. This class is called directly by the integration, so
+        # its `__call__` always runs; the nested ones are compiled into this
+        # schema by voluptuous and theirs may never be invoked.
+        for gateway in data:
+            for platform, post_process in (
+                (LIGHT, post_process_devices),
+                (SWITCH, post_process_devices),
+                (COVER, post_process_devices),
+                (BINARY_SENSOR, post_process_devices),
+                (CLIMATE, post_process_devices),
+                (SENSOR, post_process_sensors),
+            ):
+                if platform in data[gateway]:
+                    data[gateway][platform] = post_process(data[gateway][platform])
+
         _rekeyed_data = {}
         for gateway in data:
             _rekeyed_data[data[gateway][CONF_MAC]] = {}
@@ -207,81 +224,100 @@ class MyHomeConfigSchema(Schema):
         return _rekeyed_data
 
 
+def post_process_devices(data):
+    """Re-key devices and add the keys the platforms rely on.
+
+    Kept as a plain function, applied explicitly by `MyHomeConfigSchema`,
+    because it must not depend on voluptuous invoking a nested `Schema`
+    subclass: since Home Assistant 2026.9 those nested schemas validate the
+    data without running their `__call__`, which silently produced configs
+    with raw device keys (breaking unique_ids) and without `entities`,
+    `icon`, `icon_on`, `entity_name` or `model` (raising KeyError in every
+    platform).
+
+    Not idempotent — a central climate zone would gain a second `#0#` prefix —
+    so it must be applied exactly once, which is why the schema classes no
+    longer do it themselves.
+    """
+    _rekeyed_data = {}
+
+    for device in data:
+        data[device][CONF_ENTITIES] = {}
+        if CONF_WHERE in data[device]:
+            _new_key = (
+                f"{data[device][CONF_WHO]}-{data[device][CONF_WHERE]}#4#{data[device][CONF_BUS_INTERFACE]}"
+                if CONF_BUS_INTERFACE in data[device] and data[device][CONF_BUS_INTERFACE] is not None
+                else f"{data[device][CONF_WHO]}-{data[device][CONF_WHERE]}"
+            )
+            _rekeyed_data[_new_key] = data[device]
+        elif CONF_ZONE in data[device]:
+            _new_key = f"{data[device][CONF_WHO]}-{data[device][CONF_ZONE]}"
+            data[device][CONF_ZONE] = f"#0#{data[device][CONF_ZONE]}" if data[device][CONF_CENTRAL] and data[device][CONF_ZONE] != "#0" else data[device][CONF_ZONE]
+            data[device][CONF_NAME] = (
+                data[device][CONF_NAME] if CONF_NAME in data[device] else "Central unit" if data[device][CONF_ZONE].startswith("#0") else f"Zone {data[device][CONF_ZONE]}"
+            )
+            _rekeyed_data[_new_key] = data[device]
+        if CONF_DEVICE_MODEL not in data[device]:
+            data[device][CONF_DEVICE_MODEL] = None
+        if CONF_ICON not in data[device]:
+            data[device][CONF_ICON] = None
+        if CONF_ICON_ON not in data[device]:
+            data[device][CONF_ICON_ON] = None
+        if CONF_ENTITY_NAME not in data[device]:
+            data[device][CONF_ENTITY_NAME] = None
+
+    return _rekeyed_data
+
+
 class MyHomeDeviceSchema(Schema):
-    def __call__(self, data):
-        data = super().__call__(data)
-        _rekeyed_data = {}
+    """Validation only: post-processing is applied by MyHomeConfigSchema."""
 
-        for device in data:
-            data[device][CONF_ENTITIES] = {}
-            if CONF_WHERE in data[device]:
-                _new_key = (
-                    f"{data[device][CONF_WHO]}-{data[device][CONF_WHERE]}#4#{data[device][CONF_BUS_INTERFACE]}"
-                    if CONF_BUS_INTERFACE in data[device] and data[device][CONF_BUS_INTERFACE] is not None
-                    else f"{data[device][CONF_WHO]}-{data[device][CONF_WHERE]}"
-                )
-                _rekeyed_data[_new_key] = data[device]
-            elif CONF_ZONE in data[device]:
-                _new_key = f"{data[device][CONF_WHO]}-{data[device][CONF_ZONE]}"
-                data[device][CONF_ZONE] = f"#0#{data[device][CONF_ZONE]}" if data[device][CONF_CENTRAL] and data[device][CONF_ZONE] != "#0" else data[device][CONF_ZONE]
-                data[device][CONF_NAME] = (
-                    data[device][CONF_NAME] if CONF_NAME in data[device] else "Central unit" if data[device][CONF_ZONE].startswith("#0") else f"Zone {data[device][CONF_ZONE]}"
-                )
-                _rekeyed_data[_new_key] = data[device]
-            if CONF_DEVICE_MODEL not in data[device]:
-                data[device][CONF_DEVICE_MODEL] = None
-            if CONF_ICON not in data[device]:
-                data[device][CONF_ICON] = None
-            if CONF_ICON_ON not in data[device]:
-                data[device][CONF_ICON_ON] = None
-            if CONF_ENTITY_NAME not in data[device]:
-                data[device][CONF_ENTITY_NAME] = None
 
-        return _rekeyed_data
+def post_process_sensors(data):
+    """Same as `post_process_devices`, for the sensor platform."""
+    _rekeyed_data = {}
+
+    for device in data:
+        data[device][CONF_ENTITIES] = {}
+        if CONF_DEVICE_CLASS in data[device]:
+            if data[device][CONF_DEVICE_CLASS] in [
+                SensorDeviceClass.POWER,
+                SensorDeviceClass.ENERGY,
+            ]:
+                if CONF_WHO not in data[device]:
+                    data[device][CONF_WHO] = "18"
+                elif data[device][CONF_WHO] != "18":
+                    raise Invalid("invalid sensor class for selected who")
+                data[device][CONF_ENTITIES][f"daily-{SensorDeviceClass.ENERGY}"] = {}
+                data[device][CONF_ENTITIES][f"monthly-{SensorDeviceClass.ENERGY}"] = {}
+                data[device][CONF_ENTITIES][f"total-{SensorDeviceClass.ENERGY}"] = {}
+                if data[device][CONF_DEVICE_CLASS] in [SensorDeviceClass.POWER]:
+                    data[device][CONF_ENTITIES][f"{SensorDeviceClass.POWER}"] = {}
+            elif data[device][CONF_DEVICE_CLASS] in [SensorDeviceClass.TEMPERATURE]:
+                if CONF_WHO not in data[device]:
+                    data[device][CONF_WHO] = "4"
+                elif data[device][CONF_WHO] != "4":
+                    raise Invalid("invalid sensor class for selected who")
+            elif data[device][CONF_DEVICE_CLASS] in [SensorDeviceClass.ILLUMINANCE]:
+                if CONF_WHO not in data[device]:
+                    data[device][CONF_WHO] = "1"
+                elif data[device][CONF_WHO] != "1":
+                    raise Invalid("invalid sensor class for selected who")
+        if CONF_WHERE in data[device]:
+            _new_key = (
+                f"{data[device][CONF_WHO]}-{data[device][CONF_WHERE]}#4#{data[device][CONF_BUS_INTERFACE]}"
+                if CONF_BUS_INTERFACE in data[device] and data[device][CONF_BUS_INTERFACE] is not None
+                else f"{data[device][CONF_WHO]}-{data[device][CONF_WHERE]}"
+            )
+            _rekeyed_data[_new_key] = data[device]
+        if CONF_DEVICE_MODEL not in data[device]:
+            data[device][CONF_DEVICE_MODEL] = None
+
+    return _rekeyed_data
 
 
 class MyHomeSensorSchema(Schema):
-    def __call__(self, data):
-        data = super().__call__(data)
-        _rekeyed_data = {}
-
-        for device in data:
-            data[device][CONF_ENTITIES] = {}
-            if CONF_DEVICE_CLASS in data[device]:
-                if data[device][CONF_DEVICE_CLASS] in [
-                    SensorDeviceClass.POWER,
-                    SensorDeviceClass.ENERGY,
-                ]:
-                    if CONF_WHO not in data[device]:
-                        data[device][CONF_WHO] = "18"
-                    elif data[device][CONF_WHO] != "18":
-                        raise Invalid("invalid sensor class for selected who")
-                    data[device][CONF_ENTITIES][f"daily-{SensorDeviceClass.ENERGY}"] = {}
-                    data[device][CONF_ENTITIES][f"monthly-{SensorDeviceClass.ENERGY}"] = {}
-                    data[device][CONF_ENTITIES][f"total-{SensorDeviceClass.ENERGY}"] = {}
-                    if data[device][CONF_DEVICE_CLASS] in [SensorDeviceClass.POWER]:
-                        data[device][CONF_ENTITIES][f"{SensorDeviceClass.POWER}"] = {}
-                elif data[device][CONF_DEVICE_CLASS] in [SensorDeviceClass.TEMPERATURE]:
-                    if CONF_WHO not in data[device]:
-                        data[device][CONF_WHO] = "4"
-                    elif data[device][CONF_WHO] != "4":
-                        raise Invalid("invalid sensor class for selected who")
-                elif data[device][CONF_DEVICE_CLASS] in [SensorDeviceClass.ILLUMINANCE]:
-                    if CONF_WHO not in data[device]:
-                        data[device][CONF_WHO] = "1"
-                    elif data[device][CONF_WHO] != "1":
-                        raise Invalid("invalid sensor class for selected who")
-            if CONF_WHERE in data[device]:
-                _new_key = (
-                    f"{data[device][CONF_WHO]}-{data[device][CONF_WHERE]}#4#{data[device][CONF_BUS_INTERFACE]}"
-                    if CONF_BUS_INTERFACE in data[device] and data[device][CONF_BUS_INTERFACE] is not None
-                    else f"{data[device][CONF_WHO]}-{data[device][CONF_WHERE]}"
-                )
-                _rekeyed_data[_new_key] = data[device]
-            if CONF_DEVICE_MODEL not in data[device]:
-                data[device][CONF_DEVICE_MODEL] = None
-
-        return _rekeyed_data
+    """Validation only: post-processing is applied by MyHomeConfigSchema."""
 
 
 light_schema = MyHomeDeviceSchema(
